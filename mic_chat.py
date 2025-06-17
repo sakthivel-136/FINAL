@@ -7,7 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/19Ei3nfgH_cdVVbbmd-_EQurgt7s4rvQs
 """
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
 import numpy as np
 import queue
 import tempfile
@@ -41,7 +41,7 @@ def load_or_vectorize():
 
 vectorizer, vectors, df = load_or_vectorize()
 
-# Audio queue to hold microphone input
+# Audio queue for mic input
 audio_queue = queue.Queue()
 
 class AudioProcessor(AudioProcessorBase):
@@ -52,11 +52,11 @@ class AudioProcessor(AudioProcessorBase):
 
 # Streamlit UI
 st.set_page_config(page_title="KCET Voice Bot", layout="centered")
-st.title("🎙️ KCET Voice Assistant (No PyAudio)")
+st.title("🎙️ KCET Voice Assistant ")
 
 webrtc_streamer(
     key="voice",
-    mode="sendonly",
+    mode=WebRtcMode.SENDONLY,
     audio_receiver_size=1024,
     rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
     media_stream_constraints={"audio": True, "video": False},
