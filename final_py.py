@@ -14,7 +14,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # Constants
-VECTOR_FILE = "vectorized.pkl"
+VECTOR_FILE = "vectorized (3).pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.8
 
