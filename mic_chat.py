@@ -18,7 +18,7 @@ import speech_recognition as sr
 import os
 
 # Load the dataset
-df = pd.read_csv("kamaraj_college_faq.csv")
+df = pd.read_csv("kcet.csv")
 df.dropna(inplace=True)
 
 # Prepare the model
