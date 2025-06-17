@@ -7,104 +7,78 @@ Original file is located at
     https://colab.research.google.com/drive/19Ei3nfgH_cdVVbbmd-_EQurgt7s4rvQs
 """
 
-
+# mic_chat.py: Streamlit Voice-Enabled KCET ChatBot
 
 import streamlit as st
 import pandas as pd
-import pickle
 import os
-import queue
-import time
+import pickle
+import speech_recognition as sr
+import pyttsx3
 import tempfile
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import speech_recognition as sr
-from gtts import gTTS
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
 
 # Constants
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
-THRESHOLD = 0.75
+THRESHOLD = 0.8
 
-# Page setup
-st.set_page_config(page_title="🎙️ KCET Voice ChatBot", layout="centered")
-st.title("🎙️ KCET Voice ChatBot")
+# Text-to-speech engine
+engine = pyttsx3.init()
+def speak(text):
+    engine.say(text)
+    engine.runAndWait()
 
-# ---------------- Load or Build Vectorizer ----------------
+# Load or vectorize CSV data
 def load_or_vectorize():
     if os.path.exists(VECTOR_FILE):
         with open(VECTOR_FILE, "rb") as f:
-            return pickle.load(f)
-    df = pd.read_csv(CSV_FILE)
-    df['Question'] = df['Question'].str.strip().str.lower()
-    vectorizer = TfidfVectorizer()
-    vectors = vectorizer.fit_transform(df['Question'])
-    pickle.dump((vectorizer, vectors, df), open(VECTOR_FILE, "wb"))
+            vectorizer, vectors, df = pickle.load(f)
+    else:
+        df = pd.read_csv(CSV_FILE)
+        df['Question'] = df['Question'].str.strip().str.lower()
+        vectorizer = TfidfVectorizer()
+        vectors = vectorizer.fit_transform(df['Question'])
+        with open(VECTOR_FILE, "wb") as f:
+            pickle.dump((vectorizer, vectors, df), f)
     return vectorizer, vectors, df
 
 vectorizer, vectors, df = load_or_vectorize()
 
-# ---------------- Audio Recorder ----------------
-audio_queue = queue.Queue()
+# Recognize speech input
+def recognize_speech():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.info("🎙️ Listening... Speak now.")
+        audio = recognizer.listen(source, timeout=5, phrase_time_limit=8)
+    try:
+        query = recognizer.recognize_google(audio)
+        return query.lower()
+    except sr.UnknownValueError:
+        return ""
+    except sr.RequestError:
+        return ""
 
-class Recorder(AudioProcessorBase):
-    def recv(self, frame):
-        pcm = frame.to_ndarray()
-        audio_queue.put(pcm)
-        return frame
+# Setup Streamlit UI
+st.set_page_config(page_title="KCET Voice ChatBot", layout="centered")
+st.title("🎓 KCET Voice Assistant")
 
-webrtc_ctx = webrtc_streamer(
-    key="voice-chat",
-    audio_processor_factory=Recorder,
-    media_stream_constraints={"audio": True},
-)
-
-# Speech recognizer
-recognizer = sr.Recognizer()
-
-# ---------------- Chat Logic ----------------
-def get_response(text):
-    q = text.strip().lower()
-    vec = vectorizer.transform([q])
-    sim = cosine_similarity(vec, vectors)
-    best = sim.max()
-    idx = sim.argmax()
-    if best >= THRESHOLD:
-        return df.iloc[idx]["Answer"]
-    return "I'm sorry, I didn't get that. Could you repeat?"
-
-def speak(text):
-    tts = gTTS(text)
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-    tts.save(tmp.name)
-    return tmp.name
-
-# ---------------- Main Voice Loop ----------------
 if st.button("🎤 Record & Ask"):
-    if webrtc_ctx.audio_receiver:
-        pcm = None
-        try:
-            pcm = audio_queue.get(timeout=5)
-        except queue.Empty:
-            st.error("⚠️ Couldn't capture audio")
-        if pcm is not None:
-            audio_data = sr.AudioData(
-                pcm.tobytes(), webrtc_ctx.audio_receiver.get_sampling_rate(), 2
-            )
-            try:
-                query_text = recognizer.recognize_google(audio_data)
-            except Exception:
-                query_text = None
+    query = recognize_speech()
+    if query:
+        st.markdown(f"**👤 You said:** {query}")
+        query_vector = vectorizer.transform([query])
+        similarity = cosine_similarity(query_vector, vectors)
+        max_sim = similarity.max()
+        max_index = similarity.argmax()
 
-            if query_text:
-                st.write(f"**🗣️ You said:** {query_text}")
-                reply_text = get_response(query_text)
-                st.write(f"**🤖 Bot:** {reply_text}")
-                audio_path = speak(reply_text)
-                st.audio(audio_path)
-            else:
-                st.error("❌ Could not understand audio.")
+        if max_sim >= THRESHOLD:
+            answer = df.iloc[max_index]['Answer']
+        else:
+            answer = "❌ Sorry, I couldn't understand that. Please rephrase."
+
+        st.markdown(f"**🤖 Bot:** {answer}")
+        speak(answer)
     else:
-        st.error("🔇 Microphone not available in this browser.")
-
+        st.warning("❗ Could not capture any clear speech. Please try again.")
