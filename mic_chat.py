@@ -8,7 +8,7 @@ Original file is located at
 """
 
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, WebRtcMode, ClientSettings
+from streamlit_webrtc import webrtc_streamer, WebRtcMode
 import av
 import queue
 import threading
@@ -65,7 +65,7 @@ def listen_and_process():
     status.info("🚀 Background listener started...")
 
     while True:
-        if audio_queue.qsize() > 100:
+        if audio_queue.qsize() > 150:
             status.info("🎤 Listening for Wake Word...")
             audio_data = np.concatenate(list(audio_queue.queue), axis=0).astype(np.int16)
             audio_queue.queue.clear()
@@ -127,7 +127,7 @@ webrtc_streamer(
     key="voice",
     mode=WebRtcMode.SENDONLY,
     audio_processor_factory=AudioProcessor,
-    client_settings=ClientSettings(media_stream_constraints={"audio": True, "video": False}),
+    media_stream_constraints={"audio": True, "video": False},
 )
 
 threading.Thread(target=listen_and_process, daemon=True).start()
