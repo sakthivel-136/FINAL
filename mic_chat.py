@@ -8,27 +8,29 @@ Original file is located at
 """
 
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, ClientSettings
+import av
 import queue
 import threading
+import time
+import tempfile
+from gtts import gTTS
+from scipy.io.wavfile import write
 import numpy as np
 import pandas as pd
 import os
-import tempfile
+import pickle
 import speech_recognition as sr
-from scipy.io.wavfile import write
-from gtts import gTTS
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # Constants
 CSV_FILE = "kcet.csv"
 VECTOR_FILE = "vectorized.pkl"
-THRESHOLD = 0.75
+THRESHOLD = 0.8
 WAKE_WORD = "hey kcet"
 
-# Load or vectorize
-@st.cache_resource
+# Load or vectorize CSV data
 def load_or_vectorize():
     if os.path.exists(VECTOR_FILE):
         with open(VECTOR_FILE, "rb") as f:
@@ -43,81 +45,66 @@ def load_or_vectorize():
     return vectorizer, vectors, df
 
 vectorizer, vectors, df = load_or_vectorize()
+
 audio_queue = queue.Queue()
 
-# Audio handler
-class AudioProcessor(AudioProcessorBase):
-    def recv_queued(self, frames):
-        for frame in frames:
-            audio = frame.to_ndarray()
-            audio_queue.put(audio)
-        return frames[-1]
-
-# Streamlit UI
-st.set_page_config(page_title="KCET Voice Assistant", layout="centered")
+st.set_page_config(page_title="🎙️ KCET Voice Assistant", layout="centered")
 st.title("🎙️ KCET Voice Assistant (with Wake Word & Live Display)")
-
-webrtc_streamer(
-    key="listen",
-    mode=WebRtcMode.SENDONLY,
-    audio_receiver_size=2048,
-    media_stream_constraints={"audio": True, "video": False},
-    audio_processor_factory=AudioProcessor,
-)
-
+status = st.empty()
 transcript_placeholder = st.empty()
 bot_response = st.empty()
-status = st.empty()
 
-# Background worker
+class AudioProcessor:
+    def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
+        audio = frame.to_ndarray()
+        audio_queue.put_nowait(audio)
+        return frame
+
 def listen_and_process():
     recognizer = sr.Recognizer()
+    status.info("🚀 Background listener started...")
 
     while True:
-        if audio_queue.qsize() > 300:
-            status.info("🎤 Listening...")
+        if audio_queue.qsize() > 150:
+            status.info("🎤 Listening for Wake Word...")
             audio_data = np.concatenate(list(audio_queue.queue), axis=0).astype(np.int16)
             audio_queue.queue.clear()
 
-            temp_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-            write(temp_wav.name, 16000, audio_data)
-
-            with sr.AudioFile(temp_wav.name) as source:
-                try:
-                    audio = recognizer.record(source)
-                    query = recognizer.recognize_google(audio).lower()
-                except:
-                    status.warning("❌ Could not understand audio.")
-                    continue
-
-            if WAKE_WORD in query:
-                status.success("✅ Wake word detected! Waiting for your question...")
-
-                # Listen again for actual question
-                time.sleep(1)
-                while audio_queue.qsize() < 300:
-                    time.sleep(0.5)
-
-                audio_data = np.concatenate(list(audio_queue.queue), axis=0).astype(np.int16)
-                audio_queue.queue.clear()
-                temp_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
                 write(temp_wav.name, 16000, audio_data)
-
                 with sr.AudioFile(temp_wav.name) as source:
                     try:
                         audio = recognizer.record(source)
                         query = recognizer.recognize_google(audio).lower()
-                        words = query.split()
-                        live = ""
-                        for word in words:
-                            live += word + " "
-                            transcript_placeholder.markdown(f"🧑 You: `{live.strip()}`")
-                            time.sleep(0.4)
-                    except:
-                        transcript_placeholder.warning("Couldn't catch that.")
+                        print(f"🎧 Transcribed: {query}")
+                    except Exception as e:
+                        status.error(f"Speech error: {e}")
                         continue
 
-                # Process Query
+            if WAKE_WORD in query:
+                status.success("✅ Wake word detected!")
+                transcript_placeholder.markdown("🧠 Waiting for your question...")
+                time.sleep(1)
+                while audio_queue.qsize() < 150:
+                    time.sleep(0.2)
+
+                audio_data = np.concatenate(list(audio_queue.queue), axis=0).astype(np.int16)
+                audio_queue.queue.clear()
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
+                    write(temp_wav.name, 16000, audio_data)
+                    with sr.AudioFile(temp_wav.name) as source:
+                        try:
+                            audio = recognizer.record(source)
+                            query = recognizer.recognize_google(audio).lower()
+                            live = ""
+                            for word in query.split():
+                                live += word + " "
+                                transcript_placeholder.markdown(f"👤 You: `{live.strip()}`")
+                                time.sleep(0.3)
+                        except Exception as e:
+                            status.error("❌ Failed to process your speech.")
+                            continue
+
                 query_vector = vectorizer.transform([query])
                 similarity = cosine_similarity(query_vector, vectors)
                 max_sim = similarity.max()
@@ -126,19 +113,21 @@ def listen_and_process():
                 if max_sim >= THRESHOLD:
                     answer = df.iloc[max_index]['Answer']
                 else:
-                    answer = "I'm not sure how to answer that. Please try again."
+                    answer = "🤖 I couldn't understand that. Please ask again."
 
-                bot_response.markdown(f"🤖 **Bot:** {answer}")
+                bot_response.markdown(f"**🤖 Bot:** {answer}")
 
-                # TTS
                 tts = gTTS(answer)
                 tts_fp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
                 tts.save(tts_fp.name)
                 st.audio(tts_fp.name, format="audio/mp3")
                 status.empty()
 
-# Start listener once
-if "started" not in st.session_state:
-    threading.Thread(target=listen_and_process, daemon=True).start()
-    st.session_state["started"] = True
+webrtc_streamer(
+    key="voice",
+    mode=WebRtcMode.SENDONLY,
+    audio_processor_factory=AudioProcessor,
+    client_settings=ClientSettings(media_stream_constraints={"audio": True, "video": False}),
+)
 
+threading.Thread(target=listen_and_process, daemon=True).start()
