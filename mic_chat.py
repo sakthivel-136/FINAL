@@ -10,44 +10,80 @@ Original file is located at
 
 
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
-import av
-import numpy as np
-import queue
-import threading
-import time
-from gtts import gTTS
+import pandas as pd
+import pickle
 import os
-from tempfile import NamedTemporaryFile
+import speech_recognition as sr
+import pyttsx3
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-# --- Audio-to-Text Mock Example (no real STT here)
-class AudioProcessor(AudioProcessorBase):
-    def __init__(self):
-        self.audio_queue = queue.Queue()
+# Constants
+VECTOR_FILE = "vectorized.pkl"
+CSV_FILE = "kcet.csv"
+THRESHOLD = 0.8
 
-    def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
-        pcm = frame.to_ndarray()
-        self.audio_queue.put(pcm)
-        return frame
+st.set_page_config(page_title="🎤 KCET Voice Bot", layout="centered")
+st.title("🎙️ KCET Voice Assistant Bot")
 
-st.title("🎤 Voice Input ChatBot (Mock)")
+# Load vectorizer and data
+def load_or_vectorize():
+    if os.path.exists(VECTOR_FILE):
+        with open(VECTOR_FILE, "rb") as f:
+            vectorizer, vectors, df = pickle.load(f)
+    else:
+        df = pd.read_csv(CSV_FILE)
+        df['Question'] = df['Question'].str.strip().str.lower()
+        vectorizer = TfidfVectorizer()
+        vectors = vectorizer.fit_transform(df['Question'])
+        with open(VECTOR_FILE, "wb") as f:
+            pickle.dump((vectorizer, vectors, df), f)
+    return vectorizer, vectors, df
 
-webrtc_ctx = webrtc_streamer(
-    key="mic",
-    audio_receiver_size=1024,
-    media_stream_constraints={"audio": True},
-    audio_processor_factory=AudioProcessor,
-)
+vectorizer, vectors, df = load_or_vectorize()
 
-if st.button("Simulate Response 🎧"):
-    text = "Welcome to KCET. How can I help you?"
-    tts = gTTS(text)
-    with NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
-        tts.save(fp.name)
-        audio_path = fp.name
+# Initialize text-to-speech engine
+engine = pyttsx3.init()
+engine.setProperty("rate", 150)
 
-    audio_file = open(audio_path, "rb")
-    audio_bytes = audio_file.read()
-    st.audio(audio_bytes, format="audio/mp3")
-    os.remove(audio_path)
+# Voice recognizer function
+def recognize_from_mic():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.info("🎤 Listening... Speak now")
+        audio = recognizer.listen(source)
+        st.success("✅ Audio Captured. Processing...")
+
+    try:
+        query = recognizer.recognize_google(audio).strip().lower()
+        return query
+    except sr.UnknownValueError:
+        return None
+    except sr.RequestError as e:
+        return None
+
+# Run if mic button clicked
+if st.button("🎙️ Speak"):
+    user_query = recognize_from_mic()
+
+    if user_query:
+        st.markdown(f"**You asked:** `{user_query}`")
+
+        query_vector = vectorizer.transform([user_query])
+        similarity = cosine_similarity(query_vector, vectors)
+        max_sim = similarity.max()
+        max_index = similarity.argmax()
+
+        if max_sim >= THRESHOLD:
+            answer = df.iloc[max_index]["Answer"]
+        else:
+            answer = "❌ I couldn't understand your question. Please try again."
+
+        st.success(f"🤖 {answer}")
+
+        # Speak the answer
+        engine.say(answer)
+        engine.runAndWait()
+    else:
+        st.error("❌ Sorry, I didn't catch that. Try again.")
 
