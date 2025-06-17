@@ -65,7 +65,7 @@ def listen_and_process():
     status.info("🚀 Background listener started...")
 
     while True:
-        if audio_queue.qsize() > 150:
+        if audio_queue.qsize() > 100:
             status.info("🎤 Listening for Wake Word...")
             audio_data = np.concatenate(list(audio_queue.queue), axis=0).astype(np.int16)
             audio_queue.queue.clear()
@@ -131,3 +131,4 @@ webrtc_streamer(
 )
 
 threading.Thread(target=listen_and_process, daemon=True).start()
+
