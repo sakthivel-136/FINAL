@@ -6,3 +6,4 @@ streamlit_webrtc
 speechrecognition
 pydub
 gtts
+pyaudio
