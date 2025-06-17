@@ -9,72 +9,91 @@ Original file is located at
 
 
 
-import gradio as gr
+import streamlit as st
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import LabelEncoder
+import os
+import pickle
+import tempfile
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 import speech_recognition as sr
+from gtts import gTTS
+import base64
 
-# Load and preprocess the dataset
-df = pd.read_csv("kcet.csv")  # Make sure the file is in the same folder
-df.dropna(inplace=True)
+# Constants
+VECTOR_FILE = "vectorized.pkl"
+CSV_FILE = "kcet.csv"
+THRESHOLD = 0.8
 
-# Encode the answers
-le = LabelEncoder()
-df["Answer_Label"] = le.fit_transform(df["Answer"])
+# Setup
+st.set_page_config(page_title="🎙️ Voice ChatBot")
+st.title("🎙️ KCET Voice ChatBot")
 
-# Vectorize the questions
-vectorizer = TfidfVectorizer()
-X = vectorizer.fit_transform(df["Question"])
-y = df["Answer_Label"]
-
-# Train the model
-model = LogisticRegression()
-model.fit(X, y)
-
-# Function to transcribe audio
-def transcribe_audio(audio_path):
-    recognizer = sr.Recognizer()
-    try:
-        with sr.AudioFile(audio_path) as source:
-            audio_data = recognizer.record(source)
-            return recognizer.recognize_google(audio_data)
-    except Exception as e:
-        print("Transcription Error:", str(e))
-        return ""
-
-# Function to get answer
-def get_answer(text_input, audio_input):
-    if text_input and text_input.strip():
-        question = text_input.strip()
-    elif audio_input:
-        question = transcribe_audio(audio_input)
-        if not question:
-            return "❌ Sorry, could not understand the audio."
+# Load or vectorize
+def load_or_vectorize():
+    if os.path.exists(VECTOR_FILE):
+        with open(VECTOR_FILE, "rb") as f:
+            vectorizer, vectors, df = pickle.load(f)
     else:
-        return "⚠️ Please provide a question using text or voice."
+        df = pd.read_csv(CSV_FILE)
+        df['Question'] = df['Question'].str.strip().str.lower()
+        vectorizer = TfidfVectorizer()
+        vectors = vectorizer.fit_transform(df['Question'])
+        with open(VECTOR_FILE, "wb") as f:
+            pickle.dump((vectorizer, vectors, df), f)
+    return vectorizer, vectors, df
 
+vectorizer, vectors, df = load_or_vectorize()
+
+# Convert text to audio (TTS)
+def speak(text):
+    tts = gTTS(text)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
+        tts.save(fp.name)
+        return fp.name
+
+def play_audio(audio_path):
+    with open(audio_path, "rb") as audio_file:
+        audio_bytes = audio_file.read()
+        b64 = base64.b64encode(audio_bytes).decode()
+        st.markdown(
+            f'<audio autoplay controls><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>',
+            unsafe_allow_html=True,
+        )
+
+# Speech to Text
+def recognize_from_mic():
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.info("🎤 Speak now...")
+        audio = r.listen(source, phrase_time_limit=5)
     try:
-        vec = vectorizer.transform([question])
-        pred = model.predict(vec)[0]
-        answer = le.inverse_transform([pred])[0]
-        return f"🟢 Answer: {answer}"
-    except Exception as e:
-        print("Prediction Error:", str(e))
-        return "⚠️ Something went wrong while finding the answer."
+        text = r.recognize_google(audio)
+        return text
+    except sr.UnknownValueError:
+        return "❌ Could not understand audio"
+    except sr.RequestError:
+        return "❌ Could not request results"
 
-# Gradio Interface
-iface = gr.Interface(
-    fn=get_answer,
-    inputs=[
-        gr.Textbox(label="📝 Type your question"),
-        gr.Audio(source="microphone", type="filepath", format="wav", label="🎤 Or speak your question")
-    ],
-    outputs="text",
-    title="🎓 Kamaraj College FAQ Chatbot",
-    description="Ask questions related to Kamaraj College using text or your voice 🎤"
-)
+# Voice button
+if st.button("🎤 Speak Question"):
+    query = recognize_from_mic()
+    st.write(f"**🗣️ You said:** {query}")
 
-iface.launch()
+    if query.startswith("❌"):
+        st.error(query)
+    else:
+        query_lower = query.lower().strip()
+        query_vec = vectorizer.transform([query_lower])
+        similarity = cosine_similarity(query_vec, vectors)
+        max_sim = similarity.max()
+        max_index = similarity.argmax()
 
+        if max_sim >= THRESHOLD:
+            answer = df.iloc[max_index]["Answer"]
+        else:
+            answer = "❌ Sorry, I couldn't find an answer."
+
+        st.success(f"🤖 {answer}")
+        audio_path = speak(answer)
+        play_audio(audio_path)
