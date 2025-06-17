@@ -25,14 +25,14 @@ CSV_FILE = "kcet.csv"
 VECTOR_FILE = "vectorized.pkl"
 THRESHOLD = 0.8
 
-# Text-to-speech response
+# Text-to-speech
 def speak(text):
     tts = gTTS(text)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
         tts.save(fp.name)
         st.audio(fp.name, format="audio/mp3")
 
-# Load vectorized data or create from scratch
+# Load or vectorize data
 def load_or_vectorize():
     if os.path.exists(VECTOR_FILE):
         with open(VECTOR_FILE, "rb") as f:
@@ -46,12 +46,11 @@ def load_or_vectorize():
             pickle.dump((vectorizer, vectors, df), f)
     return vectorizer, vectors, df
 
-# Transcribe uploaded audio file (wav/mp3)
+# Transcribe audio file (mp3 or wav)
 def transcribe_audio(uploaded_file):
     recognizer = sr.Recognizer()
     audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
 
-    # Convert mp3 to wav
     if uploaded_file.name.endswith(".mp3"):
         sound = AudioSegment.from_mp3(uploaded_file)
         sound.export(audio_path, format="wav")
@@ -68,15 +67,14 @@ def transcribe_audio(uploaded_file):
         except sr.RequestError:
             return ""
 
-# Setup UI
+# Streamlit UI
 st.set_page_config(page_title="KCET Voice ChatBot", layout="centered")
 st.title("🎓 KCET Voice Assistant")
 
 vectorizer, vectors, df = load_or_vectorize()
 
-# Input Method
+# Choose input method
 input_method = st.radio("Choose your input method:", ["🎤 Upload Audio", "⌨️ Type Question"])
-
 query = ""
 
 if input_method == "🎤 Upload Audio":
@@ -93,7 +91,7 @@ elif input_method == "⌨️ Type Question":
     if st.button("Ask from Text") and not query:
         st.warning("Please enter a question.")
 
-# Process the question if available
+# If question is available, process it
 if query:
     query_vector = vectorizer.transform([query.lower()])
     similarity = cosine_similarity(query_vector, vectors)
