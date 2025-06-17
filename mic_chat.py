@@ -13,26 +13,23 @@ import streamlit as st
 import pandas as pd
 import os
 import pickle
-from gtts import gTTS
-import tempfile
+import speech_recognition as sr
+import pyttsx3
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import speech_recognition as sr
-from pydub import AudioSegment
 
 # Constants
-CSV_FILE = "kcet.csv"
 VECTOR_FILE = "vectorized.pkl"
+CSV_FILE = "kcet.csv"
 THRESHOLD = 0.8
 
-# Text-to-speech
+# Text-to-speech engine
+engine = pyttsx3.init()
 def speak(text):
-    tts = gTTS(text)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
-        tts.save(fp.name)
-        st.audio(fp.name, format="audio/mp3")
+    engine.say(text)
+    engine.runAndWait()
 
-# Load or vectorize data
+# Load or vectorize CSV
 def load_or_vectorize():
     if os.path.exists(VECTOR_FILE):
         with open(VECTOR_FILE, "rb") as f:
@@ -46,62 +43,40 @@ def load_or_vectorize():
             pickle.dump((vectorizer, vectors, df), f)
     return vectorizer, vectors, df
 
-# Transcribe audio file (mp3 or wav)
-def transcribe_audio(uploaded_file):
-    recognizer = sr.Recognizer()
-    audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
-
-    if uploaded_file.name.endswith(".mp3"):
-        sound = AudioSegment.from_mp3(uploaded_file)
-        sound.export(audio_path, format="wav")
-    else:
-        with open(audio_path, "wb") as f:
-            f.write(uploaded_file.read())
-
-    with sr.AudioFile(audio_path) as source:
-        audio = recognizer.record(source)
-        try:
-            return recognizer.recognize_google(audio)
-        except sr.UnknownValueError:
-            return ""
-        except sr.RequestError:
-            return ""
-
-# Streamlit UI
-st.set_page_config(page_title="KCET Voice ChatBot", layout="centered")
-st.title("🎓 KCET Voice Assistant")
-
 vectorizer, vectors, df = load_or_vectorize()
 
-# Choose input method
-input_method = st.radio("Choose your input method:", ["🎤 Upload Audio", "⌨️ Type Question"])
-query = ""
+# Recognize live speech input
+def recognize_speech():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.info("🎙️ Listening... Speak now.")
+        audio = recognizer.listen(source, timeout=5, phrase_time_limit=6)
+    try:
+        return recognizer.recognize_google(audio)
+    except sr.UnknownValueError:
+        return ""
+    except sr.RequestError:
+        return ""
 
-if input_method == "🎤 Upload Audio":
-    uploaded = st.file_uploader("Upload your voice question (MP3 or WAV)", type=["mp3", "wav"])
-    if uploaded and st.button("Ask from Audio"):
-        query = transcribe_audio(uploaded)
-        if query:
-            st.success(f"🗣️ You said: **{query}**")
+# Streamlit UI
+st.set_page_config(page_title="KCET Voice Bot", layout="centered")
+st.title("🎤 KCET Live Voice Assistant")
+
+if st.button("🎤 Speak Now"):
+    query = recognize_speech()
+    if query:
+        st.success(f"🧑 You said: {query}")
+        query_vector = vectorizer.transform([query.lower()])
+        similarity = cosine_similarity(query_vector, vectors)
+        max_sim = similarity.max()
+        max_index = similarity.argmax()
+
+        if max_sim >= THRESHOLD:
+            answer = df.iloc[max_index]['Answer']
         else:
-            st.warning("❗ Couldn't understand the audio.")
+            answer = "❌ Sorry, I couldn't understand. Please try again."
 
-elif input_method == "⌨️ Type Question":
-    query = st.text_input("Type your question here:")
-    if st.button("Ask from Text") and not query:
-        st.warning("Please enter a question.")
-
-# If question is available, process it
-if query:
-    query_vector = vectorizer.transform([query.lower()])
-    similarity = cosine_similarity(query_vector, vectors)
-    max_sim = similarity.max()
-    max_index = similarity.argmax()
-
-    if max_sim >= THRESHOLD:
-        answer = df.iloc[max_index]['Answer']
+        st.markdown(f"**🤖 Bot:** {answer}")
+        speak(answer)
     else:
-        answer = "❌ Sorry, I couldn't understand that. Please rephrase."
-
-    st.markdown(f"**🤖 Bot:** {answer}")
-    speak(answer)
+        st.warning("❗ Couldn't understand any speech. Try again.")
