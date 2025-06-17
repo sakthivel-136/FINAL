@@ -42,7 +42,7 @@ def load_or_vectorize():
 
 vectorizer, vectors, df = load_or_vectorize()
 
-# Audio queue for mic input
+# Audio queue
 audio_queue = queue.Queue()
 
 class AudioProcessor(AudioProcessorBase):
@@ -51,10 +51,13 @@ class AudioProcessor(AudioProcessorBase):
         audio_queue.put(audio)
         return frame
 
-# Streamlit UI
+# UI
 st.set_page_config(page_title="KCET Voice Assistant", layout="centered")
 st.title("🎙️ KCET Voice Assistant (Live Speech - No PyAudio)")
 
+st.markdown("#### 🎧 Speak your question, then click the button below.")
+
+# Start mic streaming
 webrtc_streamer(
     key="live-voice",
     mode=WebRtcMode.SENDONLY,
@@ -64,7 +67,10 @@ webrtc_streamer(
     audio_processor_factory=AudioProcessor,
 )
 
-# Button to process audio
+# Visualize audio queue size
+st.write(f"🔄 Audio queue size: {audio_queue.qsize()}")
+
+# Process button
 if st.button("🧠 Process My Voice"):
     recognizer = sr.Recognizer()
 
