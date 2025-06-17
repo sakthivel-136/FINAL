@@ -14,7 +14,7 @@ import pandas as pd
 import os
 import pickle
 import speech_recognition as sr
-import pyttsx3
+from gtts import gTTS
 import tempfile
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -24,11 +24,12 @@ VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.8
 
-# Text-to-speech engine
-engine = pyttsx3.init()
+# Text-to-speech using gTTS
 def speak(text):
-    engine.say(text)
-    engine.runAndWait()
+    tts = gTTS(text)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
+        tts.save(fp.name)
+        st.audio(fp.name, format='audio/mp3')
 
 # Load or vectorize CSV data
 def load_or_vectorize():
@@ -51,7 +52,10 @@ def recognize_speech():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
         st.info("🎙️ Listening... Speak now.")
-        audio = recognizer.listen(source, timeout=5, phrase_time_limit=8)
+        try:
+            audio = recognizer.listen(source, timeout=5, phrase_time_limit=8)
+        except sr.WaitTimeoutError:
+            return ""
     try:
         query = recognizer.recognize_google(audio)
         return query.lower()
