@@ -15,58 +15,56 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
 from sklearn.feature_extraction.text import TfidfVectorizer
 import speech_recognition as sr
-import os
 
-# Load the dataset
-df = pd.read_csv("kcet.csv")
+# Load dataset
+df = pd.read_csv("kcet.csv")  # ✅ use correct CSV name
 df.dropna(inplace=True)
 
-# Prepare the model
+# Encode answers
 le = LabelEncoder()
 df["Answer_Label"] = le.fit_transform(df["Answer"])
 
+# Vectorize questions
 vectorizer = TfidfVectorizer()
 X = vectorizer.fit_transform(df["Question"])
 y = df["Answer_Label"]
 
+# Train model
 model = LogisticRegression()
 model.fit(X, y)
 
-# Speech recognition from file
+# Transcribe audio using SpeechRecognition
 def transcribe_audio(audio_path):
     recognizer = sr.Recognizer()
     try:
         with sr.AudioFile(audio_path) as source:
             audio_data = recognizer.record(source)
-            text = recognizer.recognize_google(audio_data)
-            return text
+            return recognizer.recognize_google(audio_data)
     except Exception as e:
-        print("Audio Transcription Error:", str(e))
+        print("Transcription Error:", str(e))
         return ""
 
-# Final prediction function
+# Main prediction function
 def get_answer(text_input, audio_input):
-    # Prefer text input if provided
     if text_input and text_input.strip():
         question = text_input.strip()
     elif audio_input:
         question = transcribe_audio(audio_input)
-        if question == "":
+        if not question:
             return "❌ Could not understand the audio input."
     else:
         return "⚠️ Please provide a question via text or voice."
 
-    # Predict
     try:
-        vec = vectorizer.transform([question])
-        label = model.predict(vec)[0]
-        answer = le.inverse_transform([label])[0]
+        vector = vectorizer.transform([question])
+        pred = model.predict(vector)[0]
+        answer = le.inverse_transform([pred])[0]
         return f"🟢 Answer: {answer}"
     except Exception as e:
         print("Prediction Error:", str(e))
-        return "⚠️ Something went wrong while predicting the answer."
+        return "⚠️ Something went wrong during prediction."
 
-# Gradio UI
+# Gradio Interface
 iface = gr.Interface(
     fn=get_answer,
     inputs=[
@@ -75,13 +73,8 @@ iface = gr.Interface(
     ],
     outputs="text",
     title="🎓 Kamaraj College FAQ Chatbot",
-    description="Ask your question about Kamaraj College by typing or speaking it!"
-)
-
-iface.launch()
-
-    title="🎓 Kamaraj College FAQ Chatbot",
     description="Ask questions related to Kamaraj College using text or voice."
 )
 
 iface.launch()
+
