@@ -1,5 +1,7 @@
 streamlit
 streamlit-webrtc
+speechrecognition
+webrtc-audio-processing==0.2.7
 gTTS
 pydub
 scikit-learn
