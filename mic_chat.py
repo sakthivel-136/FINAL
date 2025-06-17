@@ -21,7 +21,7 @@ st.set_page_config(page_title="🎓 Kamaraj College FAQ Chatbot", layout="center
 # Load and cache model/data
 @st.cache_resource
 def load_model_and_data():
-    df = pd.read_csv("kamaraj_college_faq.csv")
+    df = pd.read_csv("kcet.csv")
     df.dropna(inplace=True)
 
     le = LabelEncoder()
