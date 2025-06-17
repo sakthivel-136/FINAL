@@ -7,6 +7,8 @@ Original file is located at
     https://colab.research.google.com/drive/19Ei3nfgH_cdVVbbmd-_EQurgt7s4rvQs
 """
 
+# mic_chat.py
+
 import streamlit as st
 import pandas as pd
 import os
@@ -19,18 +21,18 @@ import speech_recognition as sr
 from pydub import AudioSegment
 
 # Constants
-VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
+VECTOR_FILE = "vectorized.pkl"
 THRESHOLD = 0.8
 
-# Text-to-speech
+# Text-to-speech response
 def speak(text):
     tts = gTTS(text)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
         tts.save(fp.name)
-        st.audio(fp.name, format='audio/mp3')
+        st.audio(fp.name, format="audio/mp3")
 
-# Load or vectorize
+# Load vectorized data or create from scratch
 def load_or_vectorize():
     if os.path.exists(VECTOR_FILE):
         with open(VECTOR_FILE, "rb") as f:
@@ -44,22 +46,20 @@ def load_or_vectorize():
             pickle.dump((vectorizer, vectors, df), f)
     return vectorizer, vectors, df
 
-vectorizer, vectors, df = load_or_vectorize()
-
-# Speech recognition from file
+# Transcribe uploaded audio file (wav/mp3)
 def transcribe_audio(uploaded_file):
     recognizer = sr.Recognizer()
-    audio_file_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
+    audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
 
-    # Convert mp3 to wav if needed
+    # Convert mp3 to wav
     if uploaded_file.name.endswith(".mp3"):
-        audio = AudioSegment.from_mp3(uploaded_file)
-        audio.export(audio_file_path, format="wav")
+        sound = AudioSegment.from_mp3(uploaded_file)
+        sound.export(audio_path, format="wav")
     else:
-        with open(audio_file_path, "wb") as f:
+        with open(audio_path, "wb") as f:
             f.write(uploaded_file.read())
 
-    with sr.AudioFile(audio_file_path) as source:
+    with sr.AudioFile(audio_path) as source:
         audio = recognizer.record(source)
         try:
             return recognizer.recognize_google(audio)
@@ -68,26 +68,33 @@ def transcribe_audio(uploaded_file):
         except sr.RequestError:
             return ""
 
-# Streamlit UI
+# Setup UI
 st.set_page_config(page_title="KCET Voice ChatBot", layout="centered")
 st.title("🎓 KCET Voice Assistant")
 
-option = st.radio("Choose Input Method:", ["🎙️ Upload Audio", "⌨️ Type Question"])
+vectorizer, vectors, df = load_or_vectorize()
 
-if option == "🎙️ Upload Audio":
-    uploaded = st.file_uploader("Upload your question as MP3 or WAV", type=["wav", "mp3"])
-    if uploaded and st.button("Ask"):
+# Input Method
+input_method = st.radio("Choose your input method:", ["🎤 Upload Audio", "⌨️ Type Question"])
+
+query = ""
+
+if input_method == "🎤 Upload Audio":
+    uploaded = st.file_uploader("Upload your voice question (MP3 or WAV)", type=["mp3", "wav"])
+    if uploaded and st.button("Ask from Audio"):
         query = transcribe_audio(uploaded)
         if query:
-            st.markdown(f"**👤 You said:** {query}")
+            st.success(f"🗣️ You said: **{query}**")
         else:
-            st.warning("Couldn't understand the audio.")
-elif option == "⌨️ Type Question":
-    query = st.text_input("Enter your question:")
-    if query and st.button("Ask"):
-        st.markdown(f"**👤 You asked:** {query}")
+            st.warning("❗ Couldn't understand the audio.")
 
-if 'query' in locals() and query:
+elif input_method == "⌨️ Type Question":
+    query = st.text_input("Type your question here:")
+    if st.button("Ask from Text") and not query:
+        st.warning("Please enter a question.")
+
+# Process the question if available
+if query:
     query_vector = vectorizer.transform([query.lower()])
     similarity = cosine_similarity(query_vector, vectors)
     max_sim = similarity.max()
@@ -100,9 +107,3 @@ if 'query' in locals() and query:
 
     st.markdown(f"**🤖 Bot:** {answer}")
     speak(answer)
-
-
-        st.markdown(f"**🤖 Bot:** {answer}")
-        speak(answer)
-    else:
-        st.warning("❗ Could not capture any clear speech. Please try again.")
