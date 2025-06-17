@@ -16,24 +16,24 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.feature_extraction.text import TfidfVectorizer
 import speech_recognition as sr
 
-# Load dataset
-df = pd.read_csv("kcet.csv")  # ✅ use correct CSV name
+# Load and preprocess the dataset
+df = pd.read_csv("kcet.csv")  # Make sure the file is in the same folder
 df.dropna(inplace=True)
 
-# Encode answers
+# Encode the answers
 le = LabelEncoder()
 df["Answer_Label"] = le.fit_transform(df["Answer"])
 
-# Vectorize questions
+# Vectorize the questions
 vectorizer = TfidfVectorizer()
 X = vectorizer.fit_transform(df["Question"])
 y = df["Answer_Label"]
 
-# Train model
+# Train the model
 model = LogisticRegression()
 model.fit(X, y)
 
-# Transcribe audio using SpeechRecognition
+# Function to transcribe audio
 def transcribe_audio(audio_path):
     recognizer = sr.Recognizer()
     try:
@@ -44,36 +44,36 @@ def transcribe_audio(audio_path):
         print("Transcription Error:", str(e))
         return ""
 
-# Main prediction function
+# Function to get answer
 def get_answer(text_input, audio_input):
     if text_input and text_input.strip():
         question = text_input.strip()
     elif audio_input:
         question = transcribe_audio(audio_input)
         if not question:
-            return "❌ Could not understand the audio input."
+            return "❌ Sorry, could not understand the audio."
     else:
-        return "⚠️ Please provide a question via text or voice."
+        return "⚠️ Please provide a question using text or voice."
 
     try:
-        vector = vectorizer.transform([question])
-        pred = model.predict(vector)[0]
+        vec = vectorizer.transform([question])
+        pred = model.predict(vec)[0]
         answer = le.inverse_transform([pred])[0]
         return f"🟢 Answer: {answer}"
     except Exception as e:
         print("Prediction Error:", str(e))
-        return "⚠️ Something went wrong during prediction."
+        return "⚠️ Something went wrong while finding the answer."
 
 # Gradio Interface
 iface = gr.Interface(
     fn=get_answer,
     inputs=[
         gr.Textbox(label="📝 Type your question"),
-        gr.Audio(source="microphone", type="filepath", label="🎤 Or speak your question"),
+        gr.Audio(source="microphone", type="filepath", format="wav", label="🎤 Or speak your question")
     ],
     outputs="text",
     title="🎓 Kamaraj College FAQ Chatbot",
-    description="Ask questions related to Kamaraj College using text or voice."
+    description="Ask questions related to Kamaraj College using text or your voice 🎤"
 )
 
 iface.launch()
