@@ -1,6 +1,5 @@
 streamlit
 streamlit-webrtc
-speechrecognition
 gTTS
 pydub
 scikit-learn
