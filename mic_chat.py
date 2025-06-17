@@ -10,90 +10,44 @@ Original file is located at
 
 
 import streamlit as st
-import pandas as pd
-import os
-import pickle
-import tempfile
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-import speech_recognition as sr
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
+import av
+import numpy as np
+import queue
+import threading
+import time
 from gtts import gTTS
-import base64
+import os
+from tempfile import NamedTemporaryFile
 
-# Constants
-VECTOR_FILE = "vectorized.pkl"
-CSV_FILE = "kcet.csv"
-THRESHOLD = 0.8
+# --- Audio-to-Text Mock Example (no real STT here)
+class AudioProcessor(AudioProcessorBase):
+    def __init__(self):
+        self.audio_queue = queue.Queue()
 
-# Setup
-st.set_page_config(page_title="🎙️ Voice ChatBot")
-st.title("🎙️ KCET Voice ChatBot")
+    def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
+        pcm = frame.to_ndarray()
+        self.audio_queue.put(pcm)
+        return frame
 
-# Load or vectorize
-def load_or_vectorize():
-    if os.path.exists(VECTOR_FILE):
-        with open(VECTOR_FILE, "rb") as f:
-            vectorizer, vectors, df = pickle.load(f)
-    else:
-        df = pd.read_csv(CSV_FILE)
-        df['Question'] = df['Question'].str.strip().str.lower()
-        vectorizer = TfidfVectorizer()
-        vectors = vectorizer.fit_transform(df['Question'])
-        with open(VECTOR_FILE, "wb") as f:
-            pickle.dump((vectorizer, vectors, df), f)
-    return vectorizer, vectors, df
+st.title("🎤 Voice Input ChatBot (Mock)")
 
-vectorizer, vectors, df = load_or_vectorize()
+webrtc_ctx = webrtc_streamer(
+    key="mic",
+    audio_receiver_size=1024,
+    media_stream_constraints={"audio": True},
+    audio_processor_factory=AudioProcessor,
+)
 
-# Convert text to audio (TTS)
-def speak(text):
+if st.button("Simulate Response 🎧"):
+    text = "Welcome to KCET. How can I help you?"
     tts = gTTS(text)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
+    with NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
         tts.save(fp.name)
-        return fp.name
+        audio_path = fp.name
 
-def play_audio(audio_path):
-    with open(audio_path, "rb") as audio_file:
-        audio_bytes = audio_file.read()
-        b64 = base64.b64encode(audio_bytes).decode()
-        st.markdown(
-            f'<audio autoplay controls><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>',
-            unsafe_allow_html=True,
-        )
+    audio_file = open(audio_path, "rb")
+    audio_bytes = audio_file.read()
+    st.audio(audio_bytes, format="audio/mp3")
+    os.remove(audio_path)
 
-# Speech to Text
-def recognize_from_mic():
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("🎤 Speak now...")
-        audio = r.listen(source, phrase_time_limit=5)
-    try:
-        text = r.recognize_google(audio)
-        return text
-    except sr.UnknownValueError:
-        return "❌ Could not understand audio"
-    except sr.RequestError:
-        return "❌ Could not request results"
-
-# Voice button
-if st.button("🎤 Speak Question"):
-    query = recognize_from_mic()
-    st.write(f"**🗣️ You said:** {query}")
-
-    if query.startswith("❌"):
-        st.error(query)
-    else:
-        query_lower = query.lower().strip()
-        query_vec = vectorizer.transform([query_lower])
-        similarity = cosine_similarity(query_vec, vectors)
-        max_sim = similarity.max()
-        max_index = similarity.argmax()
-
-        if max_sim >= THRESHOLD:
-            answer = df.iloc[max_index]["Answer"]
-        else:
-            answer = "❌ Sorry, I couldn't find an answer."
-
-        st.success(f"🤖 {answer}")
-        audio_path = speak(answer)
-        play_audio(audio_path)
