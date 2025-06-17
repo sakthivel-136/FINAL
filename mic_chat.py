@@ -9,53 +9,63 @@ Original file is located at
 
 
 
-import streamlit as st
+import gradio as gr
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
 from sklearn.feature_extraction.text import TfidfVectorizer
+import speech_recognition as sr
 
-# Page setup
-st.set_page_config(page_title="🎓 Kamaraj College FAQ Chatbot", layout="centered")
+# Load model
+df = pd.read_csv("kamaraj_college_faq.csv")
+df.dropna(inplace=True)
 
-# Load and cache model/data
-@st.cache_resource
-def load_model_and_data():
-    df = pd.read_csv("kcet.csv")
-    df.dropna(inplace=True)
+le = LabelEncoder()
+df["Answer_Label"] = le.fit_transform(df["Answer"])
 
-    le = LabelEncoder()
-    df["Answer_Label"] = le.fit_transform(df["Answer"])
+vectorizer = TfidfVectorizer()
+X = vectorizer.fit_transform(df["Question"])
+y = df["Answer_Label"]
 
-    vectorizer = TfidfVectorizer()
-    X = vectorizer.fit_transform(df["Question"])
-    y = df["Answer_Label"]
+model = LogisticRegression()
+model.fit(X, y)
 
-    model = LogisticRegression()
-    model.fit(X, y)
+# Recognize speech from audio file
+def transcribe_audio(audio_file):
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(audio_file) as source:
+        audio = recognizer.record(source)
+    try:
+        return recognizer.recognize_google(audio)
+    except:
+        return "❌ Sorry, could not understand the audio."
 
-    return model, vectorizer, le
+# Main prediction function
+def get_answer(text, audio):
+    if not text and audio is None:
+        return "⚠️ Please provide text or voice input."
 
-# Load model and tools
-model, vectorizer, label_encoder = load_model_and_data()
+    if audio is not None and not text:
+        text = transcribe_audio(audio)
+    
+    if not text.strip():
+        return "⚠️ No understandable input provided."
 
-# Title and intro
-st.title("🎓 Kamaraj College FAQ Chatbot")
-st.markdown("Ask me anything related to **Kamaraj College of Engineering and Technology**! 🤖")
+    vector = vectorizer.transform([text])
+    pred_label = model.predict(vector)[0]
+    answer = le.inverse_transform([pred_label])[0]
+    return f"🟢 Answer: {answer}"
 
-# Voice input integration with Gradio
-st.markdown("🎤 [Click here to speak your question using mic](https://82e74598108b8cf7cd.gradio.live)", unsafe_allow_html=True)
+# Gradio Interface
+iface = gr.Interface(
+    fn=get_answer,
+    inputs=[
+        gr.Textbox(label="📝 Type your question", placeholder="Ask a question..."),
+        gr.Audio(source="microphone", type="filepath", label="🎤 Or speak your question")
+    ],
+    outputs="text",
+    title="🎓 Kamaraj College FAQ Chatbot",
+    description="Ask questions related to Kamaraj College using text or voice."
+)
 
-# Text input box
-user_question = st.text_input("💬 Type your question here:")
-
-# Predict and respond
-if st.button("🔍 Get Answer"):
-    if not user_question.strip():
-        st.warning("⚠️ Please enter a valid question.")
-    else:
-        vector = vectorizer.transform([user_question])
-        prediction = model.predict(vector)[0]
-        answer = label_encoder.inverse_transform([prediction])[0]
-        st.success(f"🟢 **Answer:** {answer}")
-
+iface.launch()
