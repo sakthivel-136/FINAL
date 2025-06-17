@@ -9,87 +9,27 @@ Original file is located at
 
 # Commented out IPython magic to ensure Python compatibility.
 # %pip install streamlit
+# KCET FAQ Chatbot (simplified core integration)
+# This can be embedded into a full Streamlit app or run as a standalone chatbot
 
 import streamlit as st
 import pandas as pd
-import os
 import pickle
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+# Constants
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.8
 
-st.set_page_config(page_title="KCET Chatbot", layout="wide")
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(page_title="KCET FAQ ChatBot", layout="centered")
+st.title("🎓 KCET Bot Assistant")
 
-# Initialize toggle state
-if "show_chat" not in st.session_state:
-    st.session_state["show_chat"] = False
-
-# CSS styling
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background-image: url('download.jpg');
-        background-size: cover;
-        background-repeat: no-repeat;
-        background-position: center;
-        background-attachment: fixed;
-        overflow: hidden;
-    }
-
-    .center-title {
-        position: absolute;
-        top: 48%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: white;
-        font-size: 42px;
-        font-weight: bold;
-        text-align: center;
-        text-shadow: 2px 2px 5px #000;
-        animation: fadeIn 2s ease-in-out forwards;
-        opacity: 0;
-        z-index: 1;
-    }
-
-    @keyframes fadeIn {
-        to { opacity: 1; }
-    }
-
-    .chat-button {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        z-index: 9999;
-    }
-
-    .chatbox {
-        position: fixed;
-        bottom: 100px;
-        right: 20px;
-        width: 350px;
-        background: rgba(255, 255, 255, 0.95);
-        padding: 15px;
-        border-radius: 20px;
-        box-shadow: 0px 0px 15px rgba(0,0,0,0.3);
-        z-index: 9998;
-    }
-
-    header, footer {visibility: hidden;}
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# Centered title only (logo removed)
-st.markdown("<div class='center-title'>KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</div>", unsafe_allow_html=True)
-
-# Load or vectorize
+# ---------------- LOAD OR VECTORIZE ----------------
 def load_or_vectorize():
-    if os.path.exists(VECTOR_FILE):
+    if VECTOR_FILE and os.path.exists(VECTOR_FILE):
         with open(VECTOR_FILE, "rb") as f:
             vectorizer, vectors, df = pickle.load(f)
     else:
@@ -103,51 +43,28 @@ def load_or_vectorize():
 
 vectorizer, vectors, df = load_or_vectorize()
 
-# Toggle button
-with st.container():
-    chat_btn = st.button("💬", key="open_chat", help="Open/Close Chat", use_container_width=False)
-    if chat_btn:
-        st.session_state["show_chat"] = not st.session_state["show_chat"]
+# ---------------- CHAT INTERFACE ----------------
+st.subheader("Ask your question below:")
 
-# Floating chat button styling
-st.markdown(
-    """
-    <script>
-    const btn = window.parent.document.querySelector('button[kind="secondary"]');
-    if (btn) {
-        btn.style.position = "fixed";
-        btn.style.bottom = "20px";
-        btn.style.right = "20px";
-        btn.style.zIndex = "9999";
-        btn.style.width = "60px";
-        btn.style.height = "60px";
-        btn.style.borderRadius = "50%";
-        btn.style.background = "#0072ff";
-        btn.style.color = "white";
-        btn.style.fontSize = "28px";
-        btn.style.lineHeight = "60px";
-        btn.style.textAlign = "center";
-        btn.style.padding = "0";
-    }
-    </script>
-    """,
-    unsafe_allow_html=True
-)
+if "chat_log" not in st.session_state:
+    st.session_state.chat_log = []
 
-# Show chatbox
-if st.session_state["show_chat"]:
-    st.markdown('<div class="chatbox">', unsafe_allow_html=True)
-    st.markdown("### 🗣️ Ask KCET Bot")
-    user_input = st.text_input("Type your question:")
-    if user_input:
-        query = user_input.strip().lower()
-        query_vector = vectorizer.transform([query])
-        similarity = cosine_similarity(query_vector, vectors)
-        max_sim = similarity.max()
-        max_index = similarity.argmax()
-        if max_sim >= THRESHOLD:
-            st.success(df.iloc[max_index]["Answer"])
-        else:
-            st.warning("❌ Check your question.")
-    st.markdown('</div>', unsafe_allow_html=True)
+user_input = st.text_input("💬 Type your question:", key="user_question")
+if user_input:
+    query = user_input.strip().lower()
+    query_vector = vectorizer.transform([query])
+    similarity = cosine_similarity(query_vector, vectors)
+    max_sim = similarity.max()
+    max_index = similarity.argmax()
+    
+    if max_sim >= THRESHOLD:
+        answer = df.iloc[max_index]["Answer"]
+    else:
+        answer = "❌ Sorry, I couldn't understand that. Please rephrase."
 
+    st.session_state.chat_log.append((user_input, answer))
+
+# ---------------- SHOW CHAT HISTORY ----------------
+for q, a in st.session_state.chat_log:
+    st.markdown(f"**👤 You:** {q}")
+    st.markdown(f"**🤖 Bot:** {a}")
