@@ -1,7 +1,9 @@
 streamlit
 streamlit-webrtc
 pandas
+numpy
 scikit-learn
-gtts
+gTTS
 SpeechRecognition
 scipy
+av
