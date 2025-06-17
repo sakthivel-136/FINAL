@@ -7,29 +7,26 @@ Original file is located at
     https://colab.research.google.com/drive/19Ei3nfgH_cdVVbbmd-_EQurgt7s4rvQs
 """
 
-# mic_chat.py
-
 import streamlit as st
-import pandas as pd
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
+import numpy as np
+import queue
 import os
+import tempfile
+import pandas as pd
 import pickle
-import speech_recognition as sr
-import pyttsx3
+from gtts import gTTS
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import speech_recognition as sr
+from pydub import AudioSegment
 
 # Constants
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.8
 
-# Text-to-speech engine
-engine = pyttsx3.init()
-def speak(text):
-    engine.say(text)
-    engine.runAndWait()
-
-# Load or vectorize CSV
+# Load or vectorize data
 def load_or_vectorize():
     if os.path.exists(VECTOR_FILE):
         with open(VECTOR_FILE, "rb") as f:
@@ -45,27 +42,51 @@ def load_or_vectorize():
 
 vectorizer, vectors, df = load_or_vectorize()
 
-# Recognize live speech input
-def recognize_speech():
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("🎙️ Listening... Speak now.")
-        audio = recognizer.listen(source, timeout=5, phrase_time_limit=6)
-    try:
-        return recognizer.recognize_google(audio)
-    except sr.UnknownValueError:
-        return ""
-    except sr.RequestError:
-        return ""
+# Audio processing using webrtc
+audio_queue = queue.Queue()
+
+class AudioProcessor(AudioProcessorBase):
+    def recv(self, frame):
+        audio = frame.to_ndarray()
+        audio_queue.put(audio)
+        return frame
 
 # Streamlit UI
 st.set_page_config(page_title="KCET Voice Bot", layout="centered")
-st.title("🎤 KCET Live Voice Assistant")
+st.title("🎤 KCET Voice Assistant (No PyAudio)")
 
-if st.button("🎤 Speak Now"):
-    query = recognize_speech()
+webrtc_streamer(
+    key="speech",
+    mode="sendonly",
+    audio_receiver_size=1024,
+    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+    media_stream_constraints={"audio": True, "video": False},
+    audio_processor_factory=AudioProcessor,
+)
+
+# Record and transcribe
+if st.button("🎤 Process Latest Audio"):
+    recognizer = sr.Recognizer()
+
+    if not audio_queue.empty():
+        audio_data = np.concatenate(list(audio_queue.queue), axis=0).astype(np.int16)
+        temp_file = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        from scipy.io.wavfile import write
+        write(temp_file.name, 16000, audio_data)
+
+        with sr.AudioFile(temp_file.name) as source:
+            audio = recognizer.record(source)
+            try:
+                query = recognizer.recognize_google(audio)
+                st.success(f"🧑 You said: {query}")
+            except:
+                st.warning("Could not understand speech")
+                query = ""
+    else:
+        st.warning("No audio captured.")
+        query = ""
+
     if query:
-        st.success(f"🧑 You said: {query}")
         query_vector = vectorizer.transform([query.lower()])
         similarity = cosine_similarity(query_vector, vectors)
         max_sim = similarity.max()
@@ -77,6 +98,8 @@ if st.button("🎤 Speak Now"):
             answer = "❌ Sorry, I couldn't understand. Please try again."
 
         st.markdown(f"**🤖 Bot:** {answer}")
-        speak(answer)
-    else:
-        st.warning("❗ Couldn't understand any speech. Try again.")
+        
+        tts = gTTS(answer)
+        tts_fp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+        tts.save(tts_fp.name)
+        st.audio(tts_fp.name, format="audio/mp3")
