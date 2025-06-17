@@ -7,31 +7,30 @@ Original file is located at
     https://colab.research.google.com/drive/19Ei3nfgH_cdVVbbmd-_EQurgt7s4rvQs
 """
 
-# mic_chat.py: Streamlit Voice-Enabled KCET ChatBot
-
 import streamlit as st
 import pandas as pd
 import os
 import pickle
-import speech_recognition as sr
 from gtts import gTTS
 import tempfile
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import speech_recognition as sr
+from pydub import AudioSegment
 
 # Constants
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.8
 
-# Text-to-speech using gTTS
+# Text-to-speech
 def speak(text):
     tts = gTTS(text)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
         tts.save(fp.name)
         st.audio(fp.name, format='audio/mp3')
 
-# Load or vectorize CSV data
+# Load or vectorize
 def load_or_vectorize():
     if os.path.exists(VECTOR_FILE):
         with open(VECTOR_FILE, "rb") as f:
@@ -47,40 +46,61 @@ def load_or_vectorize():
 
 vectorizer, vectors, df = load_or_vectorize()
 
-# Recognize speech input
-def recognize_speech():
+# Speech recognition from file
+def transcribe_audio(uploaded_file):
     recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("🎙️ Listening... Speak now.")
-        try:
-            audio = recognizer.listen(source, timeout=5, phrase_time_limit=8)
-        except sr.WaitTimeoutError:
-            return ""
-    try:
-        query = recognizer.recognize_google(audio)
-        return query.lower()
-    except sr.UnknownValueError:
-        return ""
-    except sr.RequestError:
-        return ""
+    audio_file_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
 
-# Setup Streamlit UI
+    # Convert mp3 to wav if needed
+    if uploaded_file.name.endswith(".mp3"):
+        audio = AudioSegment.from_mp3(uploaded_file)
+        audio.export(audio_file_path, format="wav")
+    else:
+        with open(audio_file_path, "wb") as f:
+            f.write(uploaded_file.read())
+
+    with sr.AudioFile(audio_file_path) as source:
+        audio = recognizer.record(source)
+        try:
+            return recognizer.recognize_google(audio)
+        except sr.UnknownValueError:
+            return ""
+        except sr.RequestError:
+            return ""
+
+# Streamlit UI
 st.set_page_config(page_title="KCET Voice ChatBot", layout="centered")
 st.title("🎓 KCET Voice Assistant")
 
-if st.button("🎤 Record & Ask"):
-    query = recognize_speech()
-    if query:
-        st.markdown(f"**👤 You said:** {query}")
-        query_vector = vectorizer.transform([query])
-        similarity = cosine_similarity(query_vector, vectors)
-        max_sim = similarity.max()
-        max_index = similarity.argmax()
+option = st.radio("Choose Input Method:", ["🎙️ Upload Audio", "⌨️ Type Question"])
 
-        if max_sim >= THRESHOLD:
-            answer = df.iloc[max_index]['Answer']
+if option == "🎙️ Upload Audio":
+    uploaded = st.file_uploader("Upload your question as MP3 or WAV", type=["wav", "mp3"])
+    if uploaded and st.button("Ask"):
+        query = transcribe_audio(uploaded)
+        if query:
+            st.markdown(f"**👤 You said:** {query}")
         else:
-            answer = "❌ Sorry, I couldn't understand that. Please rephrase."
+            st.warning("Couldn't understand the audio.")
+elif option == "⌨️ Type Question":
+    query = st.text_input("Enter your question:")
+    if query and st.button("Ask"):
+        st.markdown(f"**👤 You asked:** {query}")
+
+if 'query' in locals() and query:
+    query_vector = vectorizer.transform([query.lower()])
+    similarity = cosine_similarity(query_vector, vectors)
+    max_sim = similarity.max()
+    max_index = similarity.argmax()
+
+    if max_sim >= THRESHOLD:
+        answer = df.iloc[max_index]['Answer']
+    else:
+        answer = "❌ Sorry, I couldn't understand that. Please rephrase."
+
+    st.markdown(f"**🤖 Bot:** {answer}")
+    speak(answer)
+
 
         st.markdown(f"**🤖 Bot:** {answer}")
         speak(answer)
