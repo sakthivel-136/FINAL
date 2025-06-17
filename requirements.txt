@@ -1,9 +1,8 @@
 streamlit
+streamlit-webrtc
+speechrecognition
+gTTS
+pydub
 scikit-learn
 pandas
 numpy
-streamlit_webrtc
-speechrecognition
-pydub
-gtts
-pyaudio
