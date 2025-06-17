@@ -23,6 +23,7 @@ import pickle
 import speech_recognition as sr
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from streamlit_extras.add_vertical_space import add_vertical_space
 
 # Constants
 CSV_FILE = "kcet.csv"
@@ -45,14 +46,48 @@ def load_or_vectorize():
     return vectorizer, vectors, df
 
 vectorizer, vectors, df = load_or_vectorize()
-
 audio_queue = queue.Queue()
 
 st.set_page_config(page_title="🎙️ KCET Voice Assistant", layout="centered")
-st.title("🎙️ KCET Voice Assistant (with Wake Word & Live Display)")
+st.markdown("""
+    <style>
+    .bot-bubble {
+        background-color: #e0f7fa;
+        color: #006064;
+        padding: 1em;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .user-bubble {
+        background-color: #fce4ec;
+        color: #880e4f;
+        padding: 1em;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        text-align: right;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .typing {
+        font-style: italic;
+        color: #9e9e9e;
+        animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 0.3; }
+        50% { opacity: 1; }
+        100% { opacity: 0.3; }
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("🎙️ KCET Voice Assistant")
 status = st.empty()
 transcript_placeholder = st.empty()
 bot_response = st.empty()
+history_placeholder = st.container()
+
+chat_history = []
 
 class AudioProcessor:
     def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
@@ -99,8 +134,8 @@ def listen_and_process():
                             live = ""
                             for word in query.split():
                                 live += word + " "
-                                transcript_placeholder.markdown(f"👤 You: `{live.strip()}`")
-                                time.sleep(0.3)
+                                transcript_placeholder.markdown(f"<div class='user-bubble'>👤 {live.strip()}</div>", unsafe_allow_html=True)
+                                time.sleep(0.2)
                         except Exception as e:
                             status.error("❌ Failed to process your speech.")
                             continue
@@ -115,13 +150,23 @@ def listen_and_process():
                 else:
                     answer = "🤖 I couldn't understand that. Please ask again."
 
-                bot_response.markdown(f"**🤖 Bot:** {answer}")
+                chat_history.append((query, answer))
+                bot_response.markdown(f"<div class='bot-bubble typing'>🤖 Thinking...</div>", unsafe_allow_html=True)
+                time.sleep(1)
+                bot_response.markdown(f"<div class='bot-bubble'>🤖 {answer}</div>", unsafe_allow_html=True)
 
                 tts = gTTS(answer)
                 tts_fp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
                 tts.save(tts_fp.name)
                 st.audio(tts_fp.name, format="audio/mp3")
                 status.empty()
+
+                with history_placeholder:
+                    st.markdown("## 📜 Chat History")
+                    for user, bot in reversed(chat_history):
+                        st.markdown(f"<div class='user-bubble'>👤 {user}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='bot-bubble'>🤖 {bot}</div>", unsafe_allow_html=True)
+                        add_vertical_space(1)
 
 webrtc_streamer(
     key="voice",
@@ -131,4 +176,3 @@ webrtc_streamer(
 )
 
 threading.Thread(target=listen_and_process, daemon=True).start()
-
