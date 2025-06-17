@@ -45,36 +45,42 @@ vectorizer, vectors, df = load_or_vectorize()
 # Audio queue
 audio_queue = queue.Queue()
 
+# Fixed audio processor using recv_queued
 class AudioProcessor(AudioProcessorBase):
-    def recv(self, frame):
-        audio = frame.to_ndarray()
-        audio_queue.put(audio)
-        return frame
+    def __init__(self) -> None:
+        self.buffer = []
 
-# UI
+    def recv_queued(self, frames):
+        for frame in frames:
+            audio = frame.to_ndarray()
+            audio_queue.put(audio)
+        return frames[-1]  # return latest frame for continuity
+
+# Streamlit UI
 st.set_page_config(page_title="KCET Voice Assistant", layout="centered")
-st.title("🎙️ KCET Voice Assistant (Live Speech - No PyAudio)")
+st.title("🎙️ KCET Voice Assistant (Live Speech)")
 
-st.markdown("#### 🎧 Speak your question, then click the button below.")
+st.markdown("Speak your question and then click the button below.")
 
-# Start mic streaming
+# Start mic stream
 webrtc_streamer(
-    key="live-voice",
+    key="voice",
     mode=WebRtcMode.SENDONLY,
-    audio_receiver_size=1024,
+    audio_receiver_size=2048,
     rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
     media_stream_constraints={"audio": True, "video": False},
     audio_processor_factory=AudioProcessor,
 )
 
-# Visualize audio queue size
+# Show live queue status
 st.write(f"🔄 Audio queue size: {audio_queue.qsize()}")
 
-# Process button
+# Process spoken input
 if st.button("🧠 Process My Voice"):
     recognizer = sr.Recognizer()
 
     if not audio_queue.empty():
+        # Combine queued audio into one array
         audio_data = np.concatenate(list(audio_queue.queue), axis=0).astype(np.int16)
         temp_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
         write(temp_wav.name, 16000, audio_data)
@@ -84,9 +90,9 @@ if st.button("🧠 Process My Voice"):
                 audio = recognizer.record(source)
                 query = recognizer.recognize_google(audio)
                 st.success(f"🧑 You said: {query}")
-            except:
+            except Exception as e:
+                st.warning("❗ Could not recognize speech. Try again.")
                 query = ""
-                st.warning("❗ Could not understand audio. Try again.")
 
         if query:
             query_vector = vectorizer.transform([query.lower()])
@@ -101,11 +107,10 @@ if st.button("🧠 Process My Voice"):
 
             st.markdown(f"**🤖 Bot:** {answer}")
 
-            # Text to speech
+            # Convert response to audio
             tts = gTTS(answer)
             audio_fp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
             tts.save(audio_fp.name)
             st.audio(audio_fp.name, format="audio/mp3")
     else:
         st.warning("🎤 No audio captured yet. Please speak into your mic.")
-
