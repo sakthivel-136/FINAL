@@ -7,14 +7,11 @@ Original file is located at
     https://colab.research.google.com/drive/1nDDBJoshY8QJqi1oBTMM4uOt67h2tcKL
 """
 
-# Commented out IPython magic to ensure Python compatibility.
-# %pip install streamlit
-# KCET FAQ Chatbot (simplified core integration)
-# This can be embedded into a full Streamlit app or run as a standalone chatbot
-
+# KCET FAQ Chatbot (simplified + chat history)
 import streamlit as st
 import pandas as pd
 import pickle
+import os
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -26,37 +23,43 @@ THRESHOLD = 0.8
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="KCET FAQ ChatBot", layout="centered")
 st.title("🎓 KCET Bot Assistant")
+st.markdown("Ask me anything about **Kamaraj College of Engineering and Technology**!")
 
 # ---------------- LOAD OR VECTORIZE ----------------
 def load_or_vectorize():
-    if VECTOR_FILE and os.path.exists(VECTOR_FILE):
+    if os.path.exists(VECTOR_FILE):
         with open(VECTOR_FILE, "rb") as f:
-            vectorizer, vectors, df = pickle.load(f)
+            return pickle.load(f)
     else:
+        if not os.path.exists(CSV_FILE):
+            st.error(f"CSV file '{CSV_FILE}' not found.")
+            st.stop()
         df = pd.read_csv(CSV_FILE)
         df['Question'] = df['Question'].str.strip().str.lower()
         vectorizer = TfidfVectorizer()
         vectors = vectorizer.fit_transform(df['Question'])
         with open(VECTOR_FILE, "wb") as f:
             pickle.dump((vectorizer, vectors, df), f)
-    return vectorizer, vectors, df
+        return vectorizer, vectors, df
 
 vectorizer, vectors, df = load_or_vectorize()
+
+# ---------------- CHAT STATE ----------------
+if "chat_log" not in st.session_state:
+    st.session_state.chat_log = []
 
 # ---------------- CHAT INTERFACE ----------------
 st.subheader("Ask your question below:")
 
-if "chat_log" not in st.session_state:
-    st.session_state.chat_log = []
-
 user_input = st.text_input("💬 Type your question:", key="user_question")
+
 if user_input:
     query = user_input.strip().lower()
     query_vector = vectorizer.transform([query])
     similarity = cosine_similarity(query_vector, vectors)
     max_sim = similarity.max()
     max_index = similarity.argmax()
-    
+
     if max_sim >= THRESHOLD:
         answer = df.iloc[max_index]["Answer"]
     else:
@@ -64,7 +67,12 @@ if user_input:
 
     st.session_state.chat_log.append((user_input, answer))
 
-# ---------------- SHOW CHAT HISTORY ----------------
-for q, a in st.session_state.chat_log:
+# ---------------- DISPLAY CHAT LOG ----------------
+st.divider()
+st.subheader("Chat History 📝")
+
+for q, a in st.session_state.chat_log[::-1]:  # reverse order for newest on top
     st.markdown(f"**👤 You:** {q}")
     st.markdown(f"**🤖 Bot:** {a}")
+    st.markdown("---")
+
