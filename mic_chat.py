@@ -7,7 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/19Ei3nfgH_cdVVbbmd-_EQurgt7s4rvQs
 """
 
-!pip install streamlit scikit-learn
+
 
 import streamlit as st
 import pandas as pd
@@ -59,4 +59,3 @@ if st.button("🔍 Get Answer"):
         answer = label_encoder.inverse_transform([prediction])[0]
         st.success(f"🟢 **Answer:** {answer}")
 
-"""The error `ModuleNotFoundError: No module named 'streamlit'` indicates that the `streamlit` library was not found in your environment. This often happens when you try to import a library that hasn't been installed yet. The code above installs `streamlit` and `scikit-learn`, which are necessary for the rest of your code to run."""
