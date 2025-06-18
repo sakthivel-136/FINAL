@@ -7,6 +7,12 @@ Original file is located at
     https://colab.research.google.com/drive/19Ei3nfgH_cdVVbbmd-_EQurgt7s4rvQs
 """
 
+# -*- coding: utf-8 -*-
+"""mic_chat"""
+
+# Install required packages (only once needed in Colab/local)
+!pip install streamlit scikit-learn gTTS
+
 import streamlit as st
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
@@ -39,11 +45,11 @@ def load_model_and_data():
 # Load model and tools
 model, vectorizer, label_encoder = load_model_and_data()
 
-# UI: Title and intro
+# Title and intro
 st.title("🎓 Kamaraj College FAQ Chatbot")
 st.markdown("Ask me anything related to **Kamaraj College of Engineering and Technology**! 🤖")
 
-# Optional: Voice input link (external Gradio)
+# Voice input integration with Gradio (optional)
 st.markdown("🎤 [Click here to speak your question using mic](https://82e74598108b8cf7cd.gradio.live)", unsafe_allow_html=True)
 
 # Text input box
@@ -54,18 +60,17 @@ if st.button("🔍 Get Answer"):
     if not user_question.strip():
         st.warning("⚠️ Please enter a valid question.")
     else:
-        # Predict answer
         vector = vectorizer.transform([user_question])
         prediction = model.predict(vector)[0]
         answer = label_encoder.inverse_transform([prediction])[0]
-
-        # Display answer
+        
+        # Display answer as text
         st.success(f"🟢 **Answer:** {answer}")
-
-        # Convert to speech
-        tts = gTTS(text=answer, lang='en')  # For Tamil: use lang='ta'
+        
+        # Generate audio from text using gTTS
+        tts = gTTS(text=answer, lang='en')  # Use 'ta' for Tamil
         tts.save("response.mp3")
-
-        # Play audio
+        
+        # Play the audio response
         with open("response.mp3", "rb") as audio_file:
             st.audio(audio_file.read(), format="audio/mp3")
