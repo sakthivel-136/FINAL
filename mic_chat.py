@@ -25,6 +25,8 @@ import speech_recognition as sr
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+st.set_page_config(page_title="🎙️ KCET Voice Assistant", layout="centered")
+
 # --- Configuration Constants ---
 CSV_FILE = "kcet.csv"
 VECTOR_FILE = "vectorized.pkl"
@@ -83,7 +85,7 @@ if "show_history" not in st.session_state:
     st.session_state["show_history"] = False
 
 # --- Streamlit Page Configuration and Styling ---
-st.set_page_config(page_title="🎙️ KCET Voice Assistant", layout="centered")
+
 st.markdown("""
     <style>
     /* Chat Bubble Styling */
