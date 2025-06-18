@@ -23,7 +23,11 @@ import pickle
 import speech_recognition as sr
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from streamlit_extras.add_vertical_space import add_vertical_space
+# from streamlit_extras.add_vertical_space import add_vertical_space
+def add_vertical_space(lines=1):
+    for _ in range(lines):
+        st.markdown("<br>", unsafe_allow_html=True)
+
 
 # Constants
 CSV_FILE = "kcet.csv"
