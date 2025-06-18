@@ -8,27 +8,31 @@ Original file is located at
 """
 
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, WebRtcMode, ClientSettings, AudioProcessorBase
-from streamlit_webrtc import WebRtcStreamerContext, AudioProcessorBase
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, ClientSettings
 import numpy as np
 import threading
 import queue
 import speech_recognition as sr
 import os
 from dotenv import load_dotenv
+import time # Import time for sleep
 
-# Load environment variables from .env file
+# Load environment variables from .env file (if you have one)
+# For this example, it's not strictly needed unless you're loading specific configs
 load_dotenv()
 
 # --- Configuration ---
 WAKE_WORD = "hey kcet"
 SPEAKER_NAME = "kcet" # Replace with your AI assistant's name
-THRESHOLD = 0.75 # Similarity threshold for wake word
-AUDIO_CHUNK_SIZE = 1024  # Size of audio chunks for processing
-AUDIO_FORMAT = sr.AudioFile  # Format for SpeechRecognition
+THRESHOLD = 0.75 # Similarity threshold for wake word (adjust as needed)
+# AUDIO_CHUNK_SIZE is typically handled by av/webrtc_streamer frame size
 SAMPLE_RATE = 16000  # Sample rate for audio (common for speech)
+# Define the AudioProcessorBase class here as it's needed for inheritance
+from streamlit_webrtc.sub_modules import AudioProcessorBase
+
 
 # --- Session State Initialization ---
+# Ensure all session state variables are initialized
 if "listening_active" not in st.session_state:
     st.session_state["listening_active"] = False
 if "new_query" not in st.session_state:
@@ -37,45 +41,54 @@ if "new_answer" not in st.session_state:
     st.session_state["new_answer"] = None
 if "debug_message" not in st.session_state:
     st.session_state["debug_message"] = "Initializing..."
+if "audio_queue" not in st.session_state: # Use st.session_state to store the queue
+    st.session_state["audio_queue"] = queue.Queue()
+if "listen_event" not in st.session_state: # Use st.session_state for the event
+    st.session_state["listen_event"] = threading.Event()
+if "listen_thread_started" not in st.session_state:
+    st.session_state["listen_thread_started"] = False
 
-# --- Audio Queue for Inter-Thread Communication ---
-audio_q = queue.Queue()
 
 # --- Speech Recognition and Processing Thread ---
-def listen_and_process_thread(listening_active_event: threading.Event):
+def listen_and_process_thread(listening_active_event: threading.Event, audio_q: queue.Queue):
     recognizer = sr.Recognizer()
-    global audio_q
     st.session_state["debug_message"] = "Thread started, awaiting activation."
 
     while True:
-        listening_active_event.wait() # Wait until event is set (Streamlit button clicked)
+        # This will block the thread until the event is set (Streamlit button clicked)
+        listening_active_event.wait()
+
+        # If the event is cleared while waiting, loop back and wait again
+        if not listening_active_event.is_set():
+            continue
 
         st.session_state["debug_message"] = "👂 Listening for '" + WAKE_WORD + "'"
         # print("👂 Listening for '" + WAKE_WORD + "' (in thread)") # For terminal debugging
 
-        audio_buffer = [] # Buffer to collect audio for recognition
+        audio_buffer_list = [] # List to accumulate numpy arrays of audio frames
 
         try:
+            # Continue processing as long as the event is set
             while listening_active_event.is_set():
                 if not audio_q.empty():
-                    frame = audio_q.get()
-                    audio_buffer.append(frame.to_ndarray().flatten())
-                    # print(f"AudioProcessor: Queue size = {audio_q.qsize()}") # For terminal debugging
-                    st.session_state["debug_message"] = f"AudioProcessor: Queue size = {audio_q.qsize()}"
+                    frame_array = audio_q.get() # Get numpy array from queue
+                    audio_buffer_list.append(frame_array)
 
-                    # Process accumulated audio after a certain buffer size (e.g., 2 seconds of audio)
-                    # 16000 samples/sec * 2 bytes/sample * 2 seconds = 64000 bytes.
-                    # Each frame is AUDIO_CHUNK_SIZE * 2 bytes (stereo) or AUDIO_CHUNK_SIZE * 1 byte (mono)
-                    # Assuming mono, 16000 samples / AUDIO_CHUNK_SIZE = chunks per second.
-                    # For 2 seconds, need 2 * (16000 / AUDIO_CHUNK_SIZE) chunks.
-                    if len(audio_buffer) * AUDIO_CHUNK_SIZE >= SAMPLE_RATE * 2: # ~2 seconds of audio
+                    # Process accumulated audio after a certain buffer size (e.g., 2-3 seconds of audio)
+                    # A typical frame is 1024 samples. For 2 seconds, need about 32 frames (16000/1024 * 2)
+                    # Let's check based on the total number of samples collected
+                    total_samples = sum(len(arr) for arr in audio_buffer_list)
+
+                    if total_samples >= SAMPLE_RATE * 2: # ~2 seconds of audio at 16kHz
                         st.session_state["debug_message"] = "Processing audio chunk..."
                         # print("Processing audio chunk... (in thread)")
 
-                        concatenated_audio = np.concatenate(audio_buffer).astype(np.int16)
+                        # Concatenate all collected frames into a single numpy array
+                        concatenated_audio = np.concatenate(audio_buffer_list).astype(np.int16)
+                        # Create AudioData object for SpeechRecognition
                         audio_data = sr.AudioData(concatenated_audio.tobytes(), SAMPLE_RATE, 2) # 2 bytes per sample (int16)
 
-                        audio_buffer = [] # Clear buffer after processing
+                        audio_buffer_list = [] # Clear buffer after processing
                         
                         st.session_state["debug_message"] = f"Audio chunk collected. Size: {len(concatenated_audio)} samples."
                         # print(f"Audio chunk collected. Size: {len(concatenated_audio)} samples. (in thread)")
@@ -91,7 +104,10 @@ def listen_and_process_thread(listening_active_event: threading.Event):
                                 # Wake word detected! Extract the actual query.
                                 st.session_state["debug_message"] = "Wake word detected! " + SPEAKER_NAME + " is processing your request."
                                 # print(f"Wake word detected! {SPEAKER_NAME} is processing your request. (in thread)")
+                                
+                                # Split the query to get content after the wake word
                                 actual_query = query.split(WAKE_WORD, 1)[1].strip()
+                                
                                 if actual_query:
                                     st.session_state["new_query"] = actual_query
                                     st.session_state["new_answer"] = f"You said: '{actual_query}' (This is a placeholder answer)"
@@ -99,60 +115,66 @@ def listen_and_process_thread(listening_active_event: threading.Event):
                                     st.session_state["new_query"] = WAKE_WORD # Only wake word was said
                                     st.session_state["new_answer"] = f"Yes? How can I help you? (Only wake word detected)"
 
-                                # Stop listening after wake word and query
-                                listening_active_event.clear() # Signal to stop
-                                st.rerun() # Trigger a Streamlit rerun to update UI
-                                break # Exit inner while loop to restart listening
+                                # After detecting wake word and processing, we can stop the current "listen" cycle
+                                # and wait for next activation, or simply continue listening.
+                                # For now, we set the answer and allow the loop to continue
+                                # If you want to stop listening after a response, you'd clear the event here
+                                # and use st.rerun() if you want the UI to update immediately.
+                                # But for continuous listening, just setting session state is fine.
+                                
+                                # Trigger a Streamlit rerun to update UI
+                                # This is crucial for cross-thread updates to show in Streamlit
+                                st.rerun() 
+                                
+                                # Clear the audio buffer to avoid processing old audio again
+                                audio_buffer_list = [] 
+                                st.session_state["debug_message"] = "Response generated and UI updated."
+
                             else:
-                                st.session_state["debug_message"] = "No wake word. Still listening..."
-                                # print("No wake word. Still listening... (in thread)")
+                                st.session_state["debug_message"] = f"'{query}' (no wake word). Still listening..."
+                                # print(f"'{query}' (no wake word). Still listening... (in thread)")
 
                         except sr.UnknownValueError:
-                            st.session_state["debug_message"] = "Speech Recognition could not understand audio (in thread)"
+                            st.session_state["debug_message"] = "Speech Recognition could not understand audio."
                             # print("Speech Recognition could not understand audio (in thread)")
                         except sr.RequestError as e:
-                            st.session_state["debug_message"] = f"Could not request results from Google Speech Recognition service (in thread); {e}"
+                            st.session_state["debug_message"] = f"Google SR service error: {e}"
                             # print(f"Could not request results from Google Speech Recognition service (in thread); {e}")
+                        except Exception as e:
+                            st.session_state["debug_message"] = f"An unexpected error occurred during audio processing: {e}"
+                            # print(f"An unexpected error occurred during audio processing in thread: {e}")
                 else:
                     st.session_state["debug_message"] = "Waiting for more audio..."
                     # print("Waiting for more audio... (in thread)")
-                    # Small sleep to prevent busy-waiting if queue is empty
-                    import time
-                    time.sleep(0.01)
-
-            # If listening_active_event is cleared, the thread will loop back and wait
-            if not listening_active_event.is_set():
-                st.session_state["debug_message"] = "Listening paused. Click 'Start Listening' to resume."
-                # print("Listening paused. (in thread)")
-
+                    time.sleep(0.01) # Small sleep to prevent busy-waiting
 
         except Exception as e:
-            st.session_state["debug_message"] = f"An error occurred in listen_and_process_thread: {e}"
-            # print(f"An error occurred in listen_and_process_thread: {e}")
-            listening_active_event.clear() # Ensure event is cleared on error
+            st.session_state["debug_message"] = f"FATAL ERROR in listen_and_process_thread: {e}"
+            # print(f"FATAL ERROR in listen_and_process_thread: {e}")
+            listening_active_event.clear() # Clear event to stop thread on fatal error
             st.rerun() # Trigger rerun to show error
 
-# --- Custom Audio Processor for Streamlit-WebRTC ---
-class AudioProcessor(AudioProcessorBase):
-    def __init__(self) -> None:
-        self.audio_data_queue = audio_q
-        self.start_time = None
 
+# --- Custom Audio Processor for Streamlit-WebRTC ---
+# This class needs to inherit from AudioProcessorBase
+class AudioProcessor(AudioProcessorBase):
     def recv(self, frame: np.ndarray) -> None:
-        # frame is a numpy array of shape (samples, channels)
-        # Convert to mono if stereo
+        # frame is a numpy array (samples, channels)
+        # Ensure it's mono and int16 as expected by SpeechRecognition
         if frame.ndim > 1 and frame.shape[1] > 1:
             frame = frame.mean(axis=1) # Convert to mono by averaging channels
         
-        # Ensure the frame is int16 if it's not already
         if frame.dtype != np.int16:
             frame = frame.astype(np.int16)
 
         try:
-            self.audio_data_queue.put(frame, block=False)
+            # Put the numpy array directly into the queue
+            st.session_state["audio_queue"].put_nowait(frame)
         except queue.Full:
-            # st.session_state["debug_message"] = "Audio queue is full! Dropping frames."
-            pass # Silently drop frames if queue is full to avoid blocking
+            # If the queue is full, the processing thread is not keeping up.
+            # We can drop frames to avoid blocking the WebRTC stream.
+            pass
+
 
 # --- Streamlit UI ---
 st.set_page_config(layout="wide")
@@ -160,27 +182,9 @@ st.title("🗣️ Voice AI Assistant")
 
 debug_placeholder = st.empty() # Placeholder for real-time debug messages
 
-# Start / Stop Listening button
-col1, col2 = st.columns([1, 4])
-with col1:
-    if st.button("Start Listening") and not st.session_state["listening_active"]:
-        st.session_state["listening_active"] = True
-        st.session_state["debug_message"] = "Starting listening..."
-        # Trigger the thread to start processing if it's waiting
-        if "listen_event" in st.session_state:
-            st.session_state["listen_event"].set()
-        st.experimental_rerun() # Rerun to update UI immediately
-    elif st.button("Stop Listening") and st.session_state["listening_active"]:
-        st.session_state["listening_active"] = False
-        st.session_state["debug_message"] = "Listening stopped."
-        # Signal the thread to stop processing
-        if "listen_event" in st.session_state:
-            st.session_state["listen_event"].clear()
-        st.experimental_rerun() # Rerun to update UI immediately
-
-# WebRTC Streamer
+# Streamlit-WebRTC component
 webrtc_ctx = webrtc_streamer(
-    key="voice",
+    key="voice_input", # Unique key for the streamer
     mode=WebRtcMode.SENDONLY, # We only send audio from browser to server
     audio_processor_factory=AudioProcessor,
     media_stream_constraints={"audio": True, "video": False}, # Only request audio
@@ -191,28 +195,41 @@ webrtc_ctx = webrtc_streamer(
             {"urls": ["turn:openrelay.metered.ca:80"], "username": "openrelayproject", "credential": "openrelayproject"}
         ]
     },
-    client_settings=ClientSettings(
-        rtc_configuration={
-            "iceServers": [
-                {"urls": ["stun:stun.l.google.com:19302"]},
-                # Add a public TURN server for testing (ensure consistent with server-side)
-                {"urls": ["turn:openrelay.metered.ca:80"], "username": "openrelayproject", "credential": "openrelayproject"}
-            ]
-        }
-    )
+    # client_settings are for advanced client-side WebRTC config, often redundant
+    # with rtc_configuration for basic STUN/TURN, but can be specified if needed.
+    # For now, let's keep it simple and just use rtc_configuration directly.
 )
 
-# Start the listening thread only once
-if "listen_thread_started" not in st.session_state:
-    st.session_state["listen_event"] = threading.Event()
+# Start/Stop Listening button logic
+if webrtc_ctx.state.playing and not st.session_state["listening_active"]:
+    st.session_state["listening_active"] = True
+    st.session_state["listen_event"].set() # Set the event to start the thread processing
+    st.session_state["debug_message"] = "WebRTC connected. Listening active."
+elif not webrtc_ctx.state.playing and st.session_state["listening_active"]:
+    st.session_state["listening_active"] = False
+    st.session_state["listen_event"].clear() # Clear the event to stop the thread processing
+    # Optionally, clear the queue when stopping to prevent old audio from being processed later
+    while not st.session_state["audio_queue"].empty():
+        try:
+            st.session_state["audio_queue"].get_nowait()
+        except queue.Empty:
+            pass
+    st.session_state["debug_message"] = "WebRTC disconnected. Listening stopped."
+elif not st.session_state["listening_active"]:
+    st.session_state["debug_message"] = "Click 'Start' above to activate microphone."
+
+
+# Start the listening thread only once when the app initializes
+if not st.session_state["listen_thread_started"]:
     st.session_state["listen_thread"] = threading.Thread(
         target=listen_and_process_thread,
-        args=(st.session_state["listen_event"],),
-        daemon=True
+        args=(st.session_state["listen_event"], st.session_state["audio_queue"]),
+        daemon=True # Daemon threads exit automatically when the main program exits
     )
     st.session_state["listen_thread"].start()
     st.session_state["listen_thread_started"] = True
     st.session_state["debug_message"] = "Background listening thread initialized."
+
 
 # Display debug messages
 debug_placeholder.info(st.session_state["debug_message"])
@@ -228,4 +245,5 @@ if st.session_state["new_query"]:
 if st.button("Clear Results"):
     st.session_state["new_query"] = None
     st.session_state["new_answer"] = None
+    st.session_state["debug_message"] = "Results cleared."
     st.experimental_rerun()
