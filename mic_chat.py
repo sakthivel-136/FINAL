@@ -7,8 +7,11 @@ Original file is located at
     https://colab.research.google.com/drive/19Ei3nfgH_cdVVbbmd-_EQurgt7s4rvQs
 """
 
+
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, WebRtcMode, ClientSettings
+from streamlit_webrtc import webrtc_streamer, WebRtcMode
+# Import AudioProcessorBase and ClientSettings from sub_modules
+from streamlit_webrtc.sub_modules import AudioProcessorBase, ClientSettings 
 import numpy as np
 import threading
 import queue
@@ -18,17 +21,13 @@ from dotenv import load_dotenv
 import time # Import time for sleep
 
 # Load environment variables from .env file (if you have one)
-# For this example, it's not strictly needed unless you're loading specific configs
 load_dotenv()
 
 # --- Configuration ---
 WAKE_WORD = "hey kcet"
 SPEAKER_NAME = "kcet" # Replace with your AI assistant's name
 THRESHOLD = 0.75 # Similarity threshold for wake word (adjust as needed)
-# AUDIO_CHUNK_SIZE is typically handled by av/webrtc_streamer frame size
 SAMPLE_RATE = 16000  # Sample rate for audio (common for speech)
-# Define the AudioProcessorBase class here as it's needed for inheritance
-from streamlit_webrtc.sub_modules import AudioProcessorBase
 
 
 # --- Session State Initialization ---
@@ -75,7 +74,6 @@ def listen_and_process_thread(listening_active_event: threading.Event, audio_q: 
                     audio_buffer_list.append(frame_array)
 
                     # Process accumulated audio after a certain buffer size (e.g., 2-3 seconds of audio)
-                    # A typical frame is 1024 samples. For 2 seconds, need about 32 frames (16000/1024 * 2)
                     # Let's check based on the total number of samples collected
                     total_samples = sum(len(arr) for arr in audio_buffer_list)
 
@@ -115,15 +113,7 @@ def listen_and_process_thread(listening_active_event: threading.Event, audio_q: 
                                     st.session_state["new_query"] = WAKE_WORD # Only wake word was said
                                     st.session_state["new_answer"] = f"Yes? How can I help you? (Only wake word detected)"
 
-                                # After detecting wake word and processing, we can stop the current "listen" cycle
-                                # and wait for next activation, or simply continue listening.
-                                # For now, we set the answer and allow the loop to continue
-                                # If you want to stop listening after a response, you'd clear the event here
-                                # and use st.rerun() if you want the UI to update immediately.
-                                # But for continuous listening, just setting session state is fine.
-                                
                                 # Trigger a Streamlit rerun to update UI
-                                # This is crucial for cross-thread updates to show in Streamlit
                                 st.rerun() 
                                 
                                 # Clear the audio buffer to avoid processing old audio again
@@ -195,16 +185,15 @@ webrtc_ctx = webrtc_streamer(
             {"urls": ["turn:openrelay.metered.ca:80"], "username": "openrelayproject", "credential": "openrelayproject"}
         ]
     },
-    # client_settings are for advanced client-side WebRTC config, often redundant
-    # with rtc_configuration for basic STUN/TURN, but can be specified if needed.
-    # For now, let's keep it simple and just use rtc_configuration directly.
 )
 
 # Start/Stop Listening button logic
+# This logic triggers when the WebRTC connection state changes
 if webrtc_ctx.state.playing and not st.session_state["listening_active"]:
     st.session_state["listening_active"] = True
     st.session_state["listen_event"].set() # Set the event to start the thread processing
     st.session_state["debug_message"] = "WebRTC connected. Listening active."
+    st.experimental_rerun() # Rerun to update UI message and button state
 elif not webrtc_ctx.state.playing and st.session_state["listening_active"]:
     st.session_state["listening_active"] = False
     st.session_state["listen_event"].clear() # Clear the event to stop the thread processing
@@ -215,8 +204,9 @@ elif not webrtc_ctx.state.playing and st.session_state["listening_active"]:
         except queue.Empty:
             pass
     st.session_state["debug_message"] = "WebRTC disconnected. Listening stopped."
+    st.experimental_rerun() # Rerun to update UI message and button state
 elif not st.session_state["listening_active"]:
-    st.session_state["debug_message"] = "Click 'Start' above to activate microphone."
+    st.session_state["debug_message"] = "Click 'Start' button above to activate microphone."
 
 
 # Start the listening thread only once when the app initializes
