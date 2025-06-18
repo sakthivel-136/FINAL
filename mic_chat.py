@@ -59,6 +59,8 @@ if "chat_history" not in st.session_state:
 # Add a debug message session state for granular feedback to the user
 if "debug_message" not in st.session_state:
     st.session_state["debug_message"] = "Initializing..."
+if "show_history" not in st.session_state: # New session state for history visibility
+    st.session_state["show_history"] = False
 
 st.set_page_config(page_title="🎙️ KCET Voice Assistant", layout="centered")
 st.markdown("""
@@ -97,8 +99,7 @@ st.title("🎙️ KCET Voice Assistant")
 status = st.empty()
 transcript_placeholder = st.empty()
 bot_response = st.empty()
-history_placeholder = st.container()
-manual_input_placeholder = st.empty()
+# manual_input_placeholder = st.empty() # Moved below for better flow
 debug_placeholder = st.empty() # Placeholder for debug messages
 
 class AudioProcessor:
@@ -107,9 +108,7 @@ class AudioProcessor:
             audio = frame.to_ndarray()
             try:
                 st.session_state["audio_queue"].put_nowait(audio)
-                # print(f"AudioProcessor: Queue size = {st.session_state['audio_queue'].qsize()}") # Debugging
             except queue.Full:
-                # This means the processing thread is not consuming fast enough
                 print("Audio queue is full!")
         return frame
 
@@ -118,12 +117,9 @@ def listen_and_process_thread(audio_q: queue.Queue, listening_event: threading.E
 
     while listening_event.is_set():
         try:
-            # Check for sufficient audio data in the queue
-            # Increased threshold slightly to ensure more complete phrases are captured
-            if audio_q.qsize() > 200: # Changed from 150
+            if audio_q.qsize() > 200:
                 st.session_state["debug_message"] = "Processing audio chunk..."
                 audio_data_list = []
-                # Drain the queue to get a larger chunk
                 while not audio_q.empty():
                     try:
                         audio_data_list.append(audio_q.get_nowait())
@@ -134,21 +130,19 @@ def listen_and_process_thread(audio_q: queue.Queue, listening_event: threading.E
                     time.sleep(0.01)
                     continue
 
-                # Concatenate audio data and convert to 16-bit PCM
                 audio_data = np.concatenate(audio_data_list, axis=0).astype(np.int16)
                 st.session_state["debug_message"] = f"Audio chunk collected. Size: {len(audio_data)} samples."
 
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
-                    # `write` function expects (rate, data). The `audio_data` is already 16-bit PCM, 16000 Hz assumed
                     write(temp_wav.name, 16000, audio_data)
-                    temp_wav_path = temp_wav.name # Store path for cleanup
+                    temp_wav_path = temp_wav.name
 
                 with sr.AudioFile(temp_wav_path) as source:
                     try:
                         st.session_state["debug_message"] = "Attempting speech recognition..."
-                        audio = recognizer.record(source) # Record the entire chunk from the temp file
-                        query = recognizer.recognize_google(audio, language="en-IN").lower() # Specify language for accuracy
-                        print(f"Recognized (in thread): '{query}'") # Crucial debug print
+                        audio = recognizer.record(source)
+                        query = recognizer.recognize_google(audio, language="en-IN").lower()
+                        print(f"Recognized (in thread): '{query}'")
                         st.session_state["debug_message"] = f"Recognized: '{query}'"
 
                         if WAKE_WORD in query:
@@ -169,7 +163,6 @@ def listen_and_process_thread(audio_q: queue.Queue, listening_event: threading.E
                                     answer = "🤖 I couldn't understand that. Please ask again."
                                     print(f"No answer found (Similarity: {max_sim:.2f}). Defaulting.")
 
-                                # Set the session state variables to trigger a redraw
                                 st.session_state["new_query"] = processed_query
                                 st.session_state["new_answer"] = answer
                                 st.session_state["debug_message"] = "Response generated."
@@ -177,12 +170,11 @@ def listen_and_process_thread(audio_q: queue.Queue, listening_event: threading.E
                                 print("Wake word detected, but no command followed.")
                                 st.session_state["debug_message"] = "Wake word heard, awaiting command."
 
-                            # Clear the queue after processing a command to avoid old audio
                             while not audio_q.empty():
                                 try:
                                     audio_q.get_nowait()
                                 except queue.Empty:
-                                    pass # Should not happen here
+                                    pass
                         else:
                             st.session_state["debug_message"] = f"'{query}' (no wake word)"
 
@@ -194,21 +186,20 @@ def listen_and_process_thread(audio_q: queue.Queue, listening_event: threading.E
                         st.session_state["debug_message"] = f"SR service error: {e}"
                     except Exception as e:
                         print(f"An unexpected error occurred during audio processing in thread: {e}")
-                        st.session_state["debug_message"] = f"Thread error: {e}"
+                        st.session_state["debug_message"] = f"An unexpected error occurred during audio processing in thread: {e}"
                     finally:
                         if os.path.exists(temp_wav_path):
-                            os.unlink(temp_wav_path) # Ensure cleanup
+                            os.unlink(temp_wav_path)
 
             else:
-                # Only update debug message if not currently processing a large chunk
-                if audio_q.qsize() < 10: # Avoid spamming the debug message for every tiny queue change
+                if audio_q.qsize() < 10:
                     st.session_state["debug_message"] = f"Waiting for more audio... (Queue size: {audio_q.qsize()})"
-                time.sleep(0.05) # Increased sleep slightly to reduce busy-waiting
+                time.sleep(0.05)
 
         except Exception as e:
             print(f"FATAL ERROR in listen_and_process_thread: {e}")
             st.session_state["debug_message"] = f"FATAL THREAD ERROR: {e}"
-            listening_event.clear() # Stop the thread on fatal error
+            listening_event.clear()
             break
 
 # --- Streamlit UI and Thread Management ---
@@ -238,7 +229,7 @@ elif not webrtc_ctx.state.playing and st.session_state["listening_active_event"]
     print("Stopping listening thread...")
     st.session_state["listening_active_event"].clear()
     if st.session_state["listening_thread"] and st.session_state["listening_thread"].is_alive():
-        st.session_state["listening_thread"].join(timeout=2) # Give more time to exit
+        st.session_state["listening_thread"].join(timeout=2)
     st.session_state["listening_thread"] = None
 
     while not st.session_state["audio_queue"].empty():
@@ -255,9 +246,8 @@ elif not webrtc_ctx.state.playing and not st.session_state["listening_active_eve
 # Display debug messages
 debug_placeholder.info(st.session_state["debug_message"])
 
-
 # Manual input box
-with manual_input_placeholder.form("manual_input_form"):
+with st.form("manual_input_form"): # Removed manual_input_placeholder since it's a form now
     user_query = st.text_input("💬 Type your question if you prefer not to speak:", "")
     submitted = st.form_submit_button("Submit")
     if submitted and user_query.strip():
@@ -284,7 +274,7 @@ if "new_query" in st.session_state and "new_answer" in st.session_state:
 
     transcript_placeholder.markdown(f"<div class='user-bubble'>👤 {user}</div>", unsafe_allow_html=True)
     bot_response.markdown(f"<div class='bot-bubble typing'>🤖 Thinking...</div>", unsafe_allow_html=True)
-    time.sleep(1)
+    time.sleep(1) # Simulate thinking time
     bot_response.markdown(f"<div class='bot-bubble'>🤖 {answer}</div>", unsafe_allow_html=True)
 
     try:
@@ -298,9 +288,22 @@ if "new_query" in st.session_state and "new_answer" in st.session_state:
         st.error(f"Error generating or playing audio: {e}")
     st.session_state["debug_message"] = "Response displayed and audio played."
 
-with history_placeholder:
-    st.markdown("## 📜 Chat History")
-    for user_hist, bot_hist in reversed(st.session_state["chat_history"]):
-        st.markdown(f"<div class='user-bubble'>👤 {user_hist}</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='bot-bubble'>🤖 {bot_hist}</div>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
+---
+
+## 📜 Chat History
+
+# Add the "Show History" button
+if st.button("Show History"):
+    st.session_state["show_history"] = not st.session_state["show_history"] # Toggle visibility
+
+# Only display history if the flag is True
+if st.session_state["show_history"]:
+    if not st.session_state["chat_history"]:
+        st.info("No chat history yet.")
+    else:
+        for user_hist, bot_hist in reversed(st.session_state["chat_history"]):
+            st.markdown(f"<div class='user-bubble'>👤 {user_hist}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='bot-bubble'>🤖 {bot_hist}</div>", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+
+
