@@ -35,36 +35,29 @@ WAKE_WORD = "hey kcet" # Ensure this matches exactly what you say
 
 # --- Data Loading and Vectorization ---
 @st.cache_resource
+@st.cache_resource
 def load_or_vectorize():
-    """
-    Loads pre-vectorized data or vectorizes the CSV if the file doesn't exist.
-    Caches the result to avoid re-processing on every rerun.
-    """
     if os.path.exists(VECTOR_FILE):
-        # Removed the st.info() messages for existing vector file
         with open(VECTOR_FILE, "rb") as f:
             vectorizer, vectors, df = pickle.load(f)
     else:
-        st.info(f"'{VECTOR_FILE}' not found. Vectorizing '{CSV_FILE}'...") # Keep this for first-time vectorization feedback
         if not os.path.exists(CSV_FILE):
             st.error(f"Error: '{CSV_FILE}' not found. Please ensure it's in the same directory.")
-            st.stop() # Stop execution if the CSV is missing
+            st.stop()
         df = pd.read_csv(CSV_FILE)
-        # Ensure 'Question' column exists and is processed
         if 'Question' not in df.columns:
             st.error(f"Error: '{CSV_FILE}' must contain a 'Question' column.")
             st.stop()
         if 'Answer' not in df.columns:
             st.error(f"Error: '{CSV_FILE}' must contain an 'Answer' column.")
             st.stop()
-
         df['Question'] = df['Question'].astype(str).str.strip().str.lower()
         vectorizer = TfidfVectorizer()
         vectors = vectorizer.fit_transform(df['Question'])
         with open(VECTOR_FILE, "wb") as f:
             pickle.dump((vectorizer, vectors, df), f)
-        st.success("CSV vectorized and saved successfully!") # Keep this for first-time success feedback
     return vectorizer, vectors, df
+
 
 vectorizer, vectors, df = load_or_vectorize()
 
