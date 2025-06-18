@@ -8,20 +8,20 @@ Original file is located at
 """
 
 # -*- coding: utf-8 -*-
-"""mic_chat"""
 
+# mic_chat.py
 
-
+# Must be the first Streamlit command
 import streamlit as st
+st.set_page_config(page_title="🎓 Kamaraj College FAQ Chatbot", layout="centered")
+
+# Then import other libraries
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
 from sklearn.feature_extraction.text import TfidfVectorizer
 from gtts import gTTS
 import os
-
-# Page setup
-st.set_page_config(page_title="🎓 Kamaraj College FAQ Chatbot", layout="centered")
 
 # Load and cache model/data
 @st.cache_resource
@@ -48,7 +48,7 @@ model, vectorizer, label_encoder = load_model_and_data()
 st.title("🎓 Kamaraj College FAQ Chatbot")
 st.markdown("Ask me anything related to **Kamaraj College of Engineering and Technology**! 🤖")
 
-# Voice input integration with Gradio (optional)
+# Optional mic link (Gradio link)
 st.markdown("🎤 [Click here to speak your question using mic](https://82e74598108b8cf7cd.gradio.live)", unsafe_allow_html=True)
 
 # Text input box
@@ -62,14 +62,13 @@ if st.button("🔍 Get Answer"):
         vector = vectorizer.transform([user_question])
         prediction = model.predict(vector)[0]
         answer = label_encoder.inverse_transform([prediction])[0]
-        
-        # Display answer as text
+
+        # Show answer text
         st.success(f"🟢 **Answer:** {answer}")
-        
-        # Generate audio from text using gTTS
-        tts = gTTS(text=answer, lang='en')  # Use 'ta' for Tamil
+
+        # Generate and play audio
+        tts = gTTS(text=answer, lang='en')  # change to 'ta' for Tamil
         tts.save("response.mp3")
-        
-        # Play the audio response
-        with open("response.mp3", "rb") as audio_file:
-            st.audio(audio_file.read(), format="audio/mp3")
+
+        with open("response.mp3", "rb") as f:
+            st.audio(f.read(), format="audio/mp3")
