@@ -28,7 +28,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 CSV_FILE = "kcet.csv"
 VECTOR_FILE = "vectorized.pkl"
 THRESHOLD = 0.8
-WAKE_WORD = "hey kcet"
+WAKE_WORD = "hey kcet" # Ensure this matches exactly what you say
 
 # Load or vectorize CSV data
 def load_or_vectorize():
@@ -47,15 +47,17 @@ def load_or_vectorize():
 vectorizer, vectors, df = load_or_vectorize()
 
 # --- Initialize session state variables at the very top ---
-# This ensures they exist before any thread or part of the script tries to access them.
 if "audio_queue" not in st.session_state:
     st.session_state["audio_queue"] = queue.Queue()
-if "listening_active_event" not in st.session_state: # Renamed for clarity, it's a threading.Event
+if "listening_active_event" not in st.session_state:
     st.session_state["listening_active_event"] = threading.Event()
 if "listening_thread" not in st.session_state:
-    st.session_state["listening_thread"] = None # To hold the thread object
+    st.session_state["listening_thread"] = None
 if "chat_history" not in st.session_state:
     st.session_state["chat_history"] = []
+# Add a debug message session state for granular feedback to the user
+if "debug_message" not in st.session_state:
+    st.session_state["debug_message"] = "Initializing..."
 
 st.set_page_config(page_title="🎙️ KCET Voice Assistant", layout="centered")
 st.markdown("""
@@ -96,110 +98,117 @@ transcript_placeholder = st.empty()
 bot_response = st.empty()
 history_placeholder = st.container()
 manual_input_placeholder = st.empty()
+debug_placeholder = st.empty() # Placeholder for debug messages
 
 class AudioProcessor:
     def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
-        # Check the event flag before putting audio in queue
         if st.session_state["listening_active_event"].is_set():
             audio = frame.to_ndarray()
             try:
                 st.session_state["audio_queue"].put_nowait(audio)
+                # print(f"AudioProcessor: Queue size = {st.session_state['audio_queue'].qsize()}") # Debugging
             except queue.Full:
-                # Optionally, log or handle a full queue
-                pass
+                # This means the processing thread is not consuming fast enough
+                print("Audio queue is full!")
         return frame
-
-def process_query_and_update_state(query, answer):
-    # This function is called from the thread, but modifies session_state.
-    # We use a dummy key to trigger a Streamlit rerun, and let the main script
-    # handle the actual display and TTS.
-    st.session_state["new_query"] = query
-    st.session_state["new_answer"] = answer
 
 def listen_and_process_thread(audio_q: queue.Queue, listening_event: threading.Event):
     recognizer = sr.Recognizer()
 
-    while listening_event.is_set(): # Check the passed event flag
+    while listening_event.is_set():
         try:
             # Check for sufficient audio data in the queue
-            if audio_q.qsize() > 150: # Adjust this threshold based on your desired chunk size
+            # Increased threshold slightly to ensure more complete phrases are captured
+            if audio_q.qsize() > 200: # Changed from 150
+                st.session_state["debug_message"] = "Processing audio chunk..."
                 audio_data_list = []
+                # Drain the queue to get a larger chunk
                 while not audio_q.empty():
                     try:
                         audio_data_list.append(audio_q.get_nowait())
                     except queue.Empty:
-                        break # Break if queue becomes empty while getting
+                        break
 
-                if not audio_data_list: # If list is empty after trying to get
-                    time.sleep(0.01) # Small sleep to prevent busy-waiting
+                if not audio_data_list:
+                    time.sleep(0.01)
                     continue
 
+                # Concatenate audio data and convert to 16-bit PCM
                 audio_data = np.concatenate(audio_data_list, axis=0).astype(np.int16)
+                st.session_state["debug_message"] = f"Audio chunk collected. Size: {len(audio_data)} samples."
 
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
+                    # `write` function expects (rate, data). The `audio_data` is already 16-bit PCM, 16000 Hz assumed
                     write(temp_wav.name, 16000, audio_data)
-                    # No need for a nested `with sr.AudioFile`, just use the path
-                    with sr.AudioFile(temp_wav.name) as source:
-                        try:
-                            # Adjust this duration based on how long you expect a phrase after wake word
-                            # Or capture a longer segment and then re-process for the command
-                            audio = recognizer.record(source, duration=5) # Record up to 5 seconds
-                            query = recognizer.recognize_google(audio).lower()
-                            print(f"Recognized (in thread): {query}") # For debugging
+                    temp_wav_path = temp_wav.name # Store path for cleanup
 
-                            if WAKE_WORD in query:
-                                # Trim the wake word
-                                processed_query = query.replace(WAKE_WORD, "").strip()
-                                if processed_query:
-                                    # Call a function that can trigger a Streamlit rerun
-                                    # by modifying session_state
-                                    # Note: Streamlit usually recommends passing a callback
-                                    # function reference to the thread that then
-                                    # modifies session_state on the main loop.
-                                    # Directly modifying st.session_state from a thread
-                                    # can sometimes lead to context issues, but for
-                                    # simple flag/value setting to trigger a rerun, it often works.
-                                    query_vector = vectorizer.transform([processed_query])
-                                    similarity = cosine_similarity(query_vector, vectors)
-                                    max_sim = similarity.max()
-                                    max_index = similarity.argmax()
+                with sr.AudioFile(temp_wav_path) as source:
+                    try:
+                        st.session_state["debug_message"] = "Attempting speech recognition..."
+                        audio = recognizer.record(source) # Record the entire chunk from the temp file
+                        query = recognizer.recognize_google(audio, language="en-IN").lower() # Specify language for accuracy
+                        print(f"Recognized (in thread): '{query}'") # Crucial debug print
+                        st.session_state["debug_message"] = f"Recognized: '{query}'"
 
-                                    if max_sim >= THRESHOLD:
-                                        answer = df.iloc[max_index]['Answer']
-                                    else:
-                                        answer = "🤖 I couldn't understand that. Please ask again."
+                        if WAKE_WORD in query:
+                            print(f"Wake word '{WAKE_WORD}' detected!")
+                            st.session_state["debug_message"] = "Wake word detected! Processing command..."
+                            processed_query = query.replace(WAKE_WORD, "").strip()
+                            if processed_query:
+                                print(f"Processing command: '{processed_query}'")
+                                query_vector = vectorizer.transform([processed_query])
+                                similarity = cosine_similarity(query_vector, vectors)
+                                max_sim = similarity.max()
+                                max_index = similarity.argmax()
 
-                                    # Set the session state variables to trigger a redraw
-                                    st.session_state["new_query"] = processed_query
-                                    st.session_state["new_answer"] = answer
+                                if max_sim >= THRESHOLD:
+                                    answer = df.iloc[max_index]['Answer']
+                                    print(f"Answer found (Similarity: {max_sim:.2f}): {answer}")
                                 else:
-                                    # Wake word detected, but no command followed immediately
-                                    pass # Or provide a "waiting for command" prompt
+                                    answer = "🤖 I couldn't understand that. Please ask again."
+                                    print(f"No answer found (Similarity: {max_sim:.2f}). Defaulting.")
 
-                                # Clear the queue after processing a command to avoid old audio
-                                while not audio_q.empty():
-                                    try:
-                                        audio_q.get_nowait()
-                                    except queue.Empty:
-                                        pass # Should not happen here
-                        except sr.UnknownValueError:
-                            # Speech was unintelligible, ignore
-                            pass
-                        except sr.RequestError as e:
-                            st.warning(f"Speech recognition service error (in thread): {e}")
-                        except Exception as e:
-                            st.error(f"An unexpected error occurred during audio processing in thread: {e}")
-                        finally:
-                            if os.path.exists(temp_wav.name):
-                                os.unlink(temp_wav.name) # Ensure cleanup
+                                # Set the session state variables to trigger a redraw
+                                st.session_state["new_query"] = processed_query
+                                st.session_state["new_answer"] = answer
+                                st.session_state["debug_message"] = "Response generated."
+                            else:
+                                print("Wake word detected, but no command followed.")
+                                st.session_state["debug_message"] = "Wake word heard, awaiting command."
+
+                            # Clear the queue after processing a command to avoid old audio
+                            while not audio_q.empty():
+                                try:
+                                    audio_q.get_nowait()
+                                except queue.Empty:
+                                    pass # Should not happen here
+                        else:
+                            st.session_state["debug_message"] = f"'{query}' (no wake word)"
+
+                    except sr.UnknownValueError:
+                        print("Speech Recognition could not understand audio (in thread)")
+                        st.session_state["debug_message"] = "Could not understand audio."
+                    except sr.RequestError as e:
+                        print(f"Could not request results from Google Speech Recognition service (in thread); {e}")
+                        st.session_state["debug_message"] = f"SR service error: {e}"
+                    except Exception as e:
+                        print(f"An unexpected error occurred during audio processing in thread: {e}")
+                        st.session_state["debug_message"] = f"Thread error: {e}"
+                    finally:
+                        if os.path.exists(temp_wav_path):
+                            os.unlink(temp_wav_path) # Ensure cleanup
 
             else:
-                time.sleep(0.01) # Small sleep to prevent busy-waiting if queue is small
+                # Only update debug message if not currently processing a large chunk
+                if audio_q.qsize() < 10: # Avoid spamming the debug message for every tiny queue change
+                    st.session_state["debug_message"] = f"Waiting for more audio... (Queue size: {audio_q.qsize()})"
+                time.sleep(0.05) # Increased sleep slightly to reduce busy-waiting
 
         except Exception as e:
-            # Catch any high-level exceptions in the thread loop to prevent it from crashing silently
-            st.error(f"Fatal error in listen_and_process_thread: {e}")
-            break # Exit the loop if a fatal error occurs
+            print(f"FATAL ERROR in listen_and_process_thread: {e}")
+            st.session_state["debug_message"] = f"FATAL THREAD ERROR: {e}"
+            listening_event.clear() # Stop the thread on fatal error
+            break
 
 # --- Streamlit UI and Thread Management ---
 
@@ -213,9 +222,9 @@ webrtc_ctx = webrtc_streamer(
 
 # Start/Stop the listener thread based on WebRTC status
 if webrtc_ctx.state.playing and not st.session_state["listening_active_event"].is_set():
-    st.session_state["listening_active_event"].set() # Set the flag to true
+    st.session_state["listening_active_event"].set()
     if st.session_state["listening_thread"] is None or not st.session_state["listening_thread"].is_alive():
-        # Only start a new thread if one doesn't exist or isn't alive
+        print("Starting new listening thread...")
         st.session_state["listening_thread"] = threading.Thread(
             target=listen_and_process_thread,
             args=(st.session_state["audio_queue"], st.session_state["listening_active_event"]),
@@ -223,25 +232,27 @@ if webrtc_ctx.state.playing and not st.session_state["listening_active_event"].i
         )
         st.session_state["listening_thread"].start()
     status.write("👂 Listening for 'Hey KCET'...")
+    st.session_state["debug_message"] = "WebRTC connected. Listener thread active."
 elif not webrtc_ctx.state.playing and st.session_state["listening_active_event"].is_set():
-    st.session_state["listening_active_event"].clear() # Set the flag to false
-    # Give the thread a moment to recognize the signal and exit
+    print("Stopping listening thread...")
+    st.session_state["listening_active_event"].clear()
     if st.session_state["listening_thread"] and st.session_state["listening_thread"].is_alive():
-        # Wait a short while for the thread to exit cleanly.
-        # This join is non-blocking because of the timeout.
-        st.session_state["listening_thread"].join(timeout=1)
-    st.session_state["listening_thread"] = None # Reset the thread object
+        st.session_state["listening_thread"].join(timeout=2) # Give more time to exit
+    st.session_state["listening_thread"] = None
 
-    # Clear the queue when connection stops to prevent stale data
     while not st.session_state["audio_queue"].empty():
         try:
             st.session_state["audio_queue"].get_nowait()
         except queue.Empty:
             pass
     status.write("🔴 Not listening. Click 'Start' to activate.")
+    st.session_state["debug_message"] = "WebRTC disconnected. Listener thread stopped."
 elif not webrtc_ctx.state.playing and not st.session_state["listening_active_event"].is_set():
-    # Initial state or when stopped and already clear
     status.write("🔴 Not listening. Click 'Start' to activate.")
+    st.session_state["debug_message"] = "Awaiting WebRTC connection."
+
+# Display debug messages
+debug_placeholder.info(st.session_state["debug_message"])
 
 
 # Manual input box
@@ -249,7 +260,6 @@ with manual_input_placeholder.form("manual_input_form"):
     user_query = st.text_input("💬 Type your question if you prefer not to speak:", "")
     submitted = st.form_submit_button("Submit")
     if submitted and user_query.strip():
-        # Process manual query directly in the main thread
         query_vector = vectorizer.transform([user_query.strip().lower()])
         similarity = cosine_similarity(query_vector, vectors)
         max_sim = similarity.max()
@@ -262,33 +272,31 @@ with manual_input_placeholder.form("manual_input_form"):
 
         st.session_state["new_query"] = user_query.strip().lower()
         st.session_state["new_answer"] = answer
+        st.session_state["debug_message"] = "Manual query processed."
 
 # Display chat history and responses
-# This part runs in the main Streamlit thread on every rerun
 if "new_query" in st.session_state and "new_answer" in st.session_state:
     user = st.session_state.pop("new_query")
     answer = st.session_state.pop("new_answer")
 
     st.session_state["chat_history"].append((user, answer))
 
-    # Display current query and response
     transcript_placeholder.markdown(f"<div class='user-bubble'>👤 {user}</div>", unsafe_allow_html=True)
     bot_response.markdown(f"<div class='bot-bubble typing'>🤖 Thinking...</div>", unsafe_allow_html=True)
-    time.sleep(1) # Simulate thinking time
+    time.sleep(1)
     bot_response.markdown(f"<div class='bot-bubble'>🤖 {answer}</div>", unsafe_allow_html=True)
 
-    # Text-to-speech for the answer
     try:
         tts = gTTS(answer)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tts_fp:
             tts.save(tts_fp.name)
-            tts_file_path = tts_fp.name # Store path before closing for unlink
+            tts_file_path = tts_fp.name
         st.audio(tts_file_path, format="audio/mp3")
-        os.unlink(tts_file_path) # Clean up the audio file
+        os.unlink(tts_file_path)
     except Exception as e:
         st.error(f"Error generating or playing audio: {e}")
+    st.session_state["debug_message"] = "Response displayed and audio played."
 
-# Display full chat history
 with history_placeholder:
     st.markdown("## 📜 Chat History")
     for user_hist, bot_hist in reversed(st.session_state["chat_history"]):
