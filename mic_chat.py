@@ -9,9 +9,7 @@ Original file is located at
 
 
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, WebRtcMode
-# Import AudioProcessorBase and ClientSettings from sub_modules
-from streamlit_webrtc.sub_modules import AudioProcessorBase 
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, ClientSettings, AudioProcessorBase
 import numpy as np
 import threading
 import queue
