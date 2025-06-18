@@ -99,7 +99,6 @@ st.title("🎙️ KCET Voice Assistant")
 status = st.empty()
 transcript_placeholder = st.empty()
 bot_response = st.empty()
-# manual_input_placeholder = st.empty() # Moved below for better flow
 debug_placeholder = st.empty() # Placeholder for debug messages
 
 class AudioProcessor:
@@ -247,7 +246,7 @@ elif not webrtc_ctx.state.playing and not st.session_state["listening_active_eve
 debug_placeholder.info(st.session_state["debug_message"])
 
 # Manual input box
-with st.form("manual_input_form"): # Removed manual_input_placeholder since it's a form now
+with st.form("manual_input_form"):
     user_query = st.text_input("💬 Type your question if you prefer not to speak:", "")
     submitted = st.form_submit_button("Submit")
     if submitted and user_query.strip():
@@ -288,12 +287,14 @@ if "new_query" in st.session_state and "new_answer" in st.session_state:
         st.error(f"Error generating or playing audio: {e}")
     st.session_state["debug_message"] = "Response displayed and audio played."
 
----
-
-## 📜 Chat History
+# --- Chat History Section with Toggle Button ---
+st.markdown("---") # Horizontal rule for separation
+st.markdown("## 📜 Chat History") # Heading for the history section
 
 # Add the "Show History" button
-if st.button("Show History"):
+# The button's label can dynamically change based on the state for better UX
+button_label = "Hide History" if st.session_state["show_history"] else "Show History"
+if st.button(button_label):
     st.session_state["show_history"] = not st.session_state["show_history"] # Toggle visibility
 
 # Only display history if the flag is True
@@ -301,9 +302,9 @@ if st.session_state["show_history"]:
     if not st.session_state["chat_history"]:
         st.info("No chat history yet.")
     else:
+        # Use a container for history to manage layout if needed, though not strictly required here
+        # with st.container(): # Optional: for better grouping of history
         for user_hist, bot_hist in reversed(st.session_state["chat_history"]):
             st.markdown(f"<div class='user-bubble'>👤 {user_hist}</div>", unsafe_allow_html=True)
             st.markdown(f"<div class='bot-bubble'>🤖 {bot_hist}</div>", unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-
-
+            # st.markdown("<br>", unsafe_allow_html=True) # The margin in CSS handles spacing, <br> is less semantic
