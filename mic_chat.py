@@ -8,7 +8,7 @@ Original file is located at
 """
 
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, WebRtcMode, VideoProcessorBase, ClientSettings
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, ClientSettings, AudioProcessorBase
 from streamlit_webrtc import WebRtcStreamerContext, AudioProcessorBase
 import numpy as np
 import threading
