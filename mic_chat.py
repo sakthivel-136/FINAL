@@ -10,8 +10,7 @@ Original file is located at
 # -*- coding: utf-8 -*-
 """mic_chat"""
 
-# Install required packages (only once needed in Colab/local)
-!pip install streamlit scikit-learn gTTS
+
 
 import streamlit as st
 import pandas as pd
