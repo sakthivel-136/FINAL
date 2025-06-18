@@ -25,6 +25,7 @@ import speech_recognition as sr
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+# --- IMPORTANT: st.set_page_config() MUST BE THE FIRST STREAMLIT COMMAND ---
 st.set_page_config(page_title="🎙️ KCET Voice Assistant", layout="centered")
 
 # --- Configuration Constants ---
@@ -85,7 +86,6 @@ if "show_history" not in st.session_state:
     st.session_state["show_history"] = False
 
 # --- Streamlit Page Configuration and Styling ---
-
 st.markdown("""
     <style>
     /* Chat Bubble Styling */
@@ -228,7 +228,7 @@ def listen_and_process_thread(audio_q: queue.Queue, listening_event: threading.E
                                 st.session_state["new_query"] = processed_query
                                 st.session_state["new_answer"] = answer
                                 st.session_state["debug_message"] = "Response generated and pending display."
-                                st.experimental_rerun() # Force Streamlit rerun to display changes immediately
+                                st.rerun() # Changed from st.experimental_rerun()
                             else:
                                 print("Wake word detected, but no command followed.")
                                 st.session_state["debug_message"] = "Wake word heard, awaiting command."
@@ -335,7 +335,7 @@ with st.form("manual_input_form", clear_on_submit=True): # clear_on_submit clear
         st.session_state["new_query"] = user_query_manual.strip().lower()
         st.session_state["new_answer"] = answer
         st.session_state["debug_message"] = "Manual query processed."
-        st.experimental_rerun() # Force rerun to display changes
+        st.rerun() # Changed from st.experimental_rerun()
 
 # --- Display Latest User Query and Bot Response (Main Chat Area) ---
 if "new_query" in st.session_state and "new_answer" in st.session_state:
@@ -359,7 +359,6 @@ if "new_query" in st.session_state and "new_answer" in st.session_state:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tts_fp:
             tts.save(tts_fp.name)
             tts_file_path = tts_fp.name
-        # The key change for autoplay:
         st.audio(tts_file_path, format="audio/mp3", autoplay=True, loop=False)
         os.unlink(tts_file_path) # Clean up temporary audio file
     except Exception as e:
@@ -386,4 +385,4 @@ if st.session_state["show_history"]:
         for user_hist, bot_hist in reversed(st.session_state["chat_history"]):
             st.markdown(f"<div class='user-bubble'>👤 **You:** {user_hist}</div>", unsafe_allow_html=True)
             st.markdown(f"<div class='bot-bubble'>🤖 **KCET Bot:** {bot_hist}</div>", unsafe_allow_html=True)
-            # No need for <br> as CSS margins handle spacing.       # st.markdown("<br>", unsafe_allow_html=True) # The margin in CSS handles spacing, <br> is less semantic
+            # No need for <br> as CSS margins handle spacing.
