@@ -42,12 +42,11 @@ def load_or_vectorize():
     Caches the result to avoid re-processing on every rerun.
     """
     if os.path.exists(VECTOR_FILE):
-        st.info("Loading pre-vectorized data...")
+        # Removed the st.info() messages for existing vector file
         with open(VECTOR_FILE, "rb") as f:
             vectorizer, vectors, df = pickle.load(f)
-        st.info("Vectorized data loaded successfully.")
     else:
-        st.info(f"'{VECTOR_FILE}' not found. Vectorizing '{CSV_FILE}'...")
+        st.info(f"'{VECTOR_FILE}' not found. Vectorizing '{CSV_FILE}'...") # Keep this for first-time vectorization feedback
         if not os.path.exists(CSV_FILE):
             st.error(f"Error: '{CSV_FILE}' not found. Please ensure it's in the same directory.")
             st.stop() # Stop execution if the CSV is missing
@@ -65,7 +64,7 @@ def load_or_vectorize():
         vectors = vectorizer.fit_transform(df['Question'])
         with open(VECTOR_FILE, "wb") as f:
             pickle.dump((vectorizer, vectors, df), f)
-        st.success("CSV vectorized and saved successfully!")
+        st.success("CSV vectorized and saved successfully!") # Keep this for first-time success feedback
     return vectorizer, vectors, df
 
 vectorizer, vectors, df = load_or_vectorize()
@@ -296,7 +295,7 @@ elif not webrtc_ctx.state.playing and st.session_state["listening_active_event"]
     st.session_state["listening_active_event"].clear() # Signal the thread to stop
     if st.session_state["listening_thread"] and st.session_state["listening_thread"].is_alive():
         st.session_state["listening_thread"].join(timeout=3) # Give thread time to clean up
-    st.session_state["listening_thread"] = None
+    st.session_session_state["listening_thread"] = None
     # Clear the queue when stopping to prevent old audio from being processed on restart
     while not st.session_state["audio_queue"].empty():
         try:
