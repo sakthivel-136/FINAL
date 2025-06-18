@@ -85,6 +85,7 @@ status = st.empty()
 transcript_placeholder = st.empty()
 bot_response = st.empty()
 history_placeholder = st.container()
+manual_input_placeholder = st.empty()
 
 chat_history = []
 
@@ -93,6 +94,20 @@ class AudioProcessor:
         audio = frame.to_ndarray()
         audio_queue.put_nowait(audio)
         return frame
+
+def process_query(query):
+    query_vector = vectorizer.transform([query])
+    similarity = cosine_similarity(query_vector, vectors)
+    max_sim = similarity.max()
+    max_index = similarity.argmax()
+
+    if max_sim >= THRESHOLD:
+        answer = df.iloc[max_index]['Answer']
+    else:
+        answer = "🤖 I couldn't understand that. Please ask again."
+
+    st.session_state["new_query"] = query
+    st.session_state["new_answer"] = answer
 
 def listen_and_process():
     recognizer = sr.Recognizer()
@@ -126,27 +141,24 @@ def listen_and_process():
                         except Exception:
                             continue
 
-                query_vector = vectorizer.transform([query])
-                similarity = cosine_similarity(query_vector, vectors)
-                max_sim = similarity.max()
-                max_index = similarity.argmax()
-
-                if max_sim >= THRESHOLD:
-                    answer = df.iloc[max_index]['Answer']
-                else:
-                    answer = "🤖 I couldn't understand that. Please ask again."
-
-                st.session_state["new_query"] = query
-                st.session_state["new_answer"] = answer
+                process_query(query)
 
 webrtc_streamer(
     key="voice",
     mode=WebRtcMode.SENDONLY,
     audio_processor_factory=lambda: AudioProcessor(),
     media_stream_constraints={"audio": True, "video": False},
+    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
 )
 
 threading.Thread(target=listen_and_process, daemon=True).start()
+
+# Manual input box
+with manual_input_placeholder.form("manual_input_form"):
+    user_query = st.text_input("💬 Type your question if you prefer not to speak:", "")
+    submitted = st.form_submit_button("Submit")
+    if submitted and user_query.strip():
+        process_query(user_query.strip().lower())
 
 if "new_query" in st.session_state and "new_answer" in st.session_state:
     user = st.session_state.pop("new_query")
