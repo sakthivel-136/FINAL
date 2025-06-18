@@ -7,13 +7,13 @@ Original file is located at
     https://colab.research.google.com/drive/19Ei3nfgH_cdVVbbmd-_EQurgt7s4rvQs
 """
 
-!pip install streamlit scikit-learn
-
 import streamlit as st
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
 from sklearn.feature_extraction.text import TfidfVectorizer
+from gtts import gTTS
+import os
 
 # Page setup
 st.set_page_config(page_title="🎓 Kamaraj College FAQ Chatbot", layout="centered")
@@ -39,11 +39,11 @@ def load_model_and_data():
 # Load model and tools
 model, vectorizer, label_encoder = load_model_and_data()
 
-# Title and intro
+# UI: Title and intro
 st.title("🎓 Kamaraj College FAQ Chatbot")
 st.markdown("Ask me anything related to **Kamaraj College of Engineering and Technology**! 🤖")
 
-# Voice input integration with Gradio
+# Optional: Voice input link (external Gradio)
 st.markdown("🎤 [Click here to speak your question using mic](https://82e74598108b8cf7cd.gradio.live)", unsafe_allow_html=True)
 
 # Text input box
@@ -54,9 +54,18 @@ if st.button("🔍 Get Answer"):
     if not user_question.strip():
         st.warning("⚠️ Please enter a valid question.")
     else:
+        # Predict answer
         vector = vectorizer.transform([user_question])
         prediction = model.predict(vector)[0]
         answer = label_encoder.inverse_transform([prediction])[0]
+
+        # Display answer
         st.success(f"🟢 **Answer:** {answer}")
 
-"""The error `ModuleNotFoundError: No module named 'streamlit'` indicates that the `streamlit` library was not found in your environment. This often happens when you try to import a library that hasn't been installed yet. The code above installs `streamlit` and `scikit-learn`, which are necessary for the rest of your code to run."""
+        # Convert to speech
+        tts = gTTS(text=answer, lang='en')  # For Tamil: use lang='ta'
+        tts.save("response.mp3")
+
+        # Play audio
+        with open("response.mp3", "rb") as audio_file:
+            st.audio(audio_file.read(), format="audio/mp3")
