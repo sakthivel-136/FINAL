@@ -124,16 +124,19 @@ st.markdown("""
     </script>
 """, unsafe_allow_html=True)
 
-# 🎙️ Mic recorder input
+# 🎤 Mic recorder input
 voice_text = mic_recorder(
-    start_prompt="🎙️ Start Recording",
+    start_prompt="🎤 Start Recording",
     stop_prompt="⏹️ Stop",
     just_once=True,
     key="mic"
 )
 
-if voice_text and isinstance(voice_text, dict) and "text" in voice_text and voice_text["text"].strip():
-    st.session_state.chat_input = voice_text["text"]
+if voice_text and isinstance(voice_text, dict):
+    transcript = voice_text.get("text", "").strip()
+    if transcript:
+        st.success(f"🔊 You said: {transcript}")
+        st.session_state.chat_input = transcript
 
 # Chat input + form
 with st.form("chat_form", clear_on_submit=False):
@@ -165,6 +168,6 @@ if submitted and user_input.strip():
         st.error(f"⚠️ Error: {e}")
 
 # Clear chat
-if st.button("🧹 Clear Chat"):
+if st.button("🪑 Clear Chat"):
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
     st.session_state.chat_input = ""
