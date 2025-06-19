@@ -42,7 +42,6 @@ st.markdown("""
     .chat-container {
         max-width: 720px;
         margin: 0 auto;
-        height: 500px;
         overflow-y: auto;
         padding: 10px 20px;
         background: #0f0f0f;
@@ -81,7 +80,7 @@ st.markdown("""
     }
     .input-area {
         max-width: 720px;
-        margin: 10px auto 0;
+        margin: 20px auto;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -112,7 +111,7 @@ if "chat_log" not in st.session_state:
 for file in glob.glob("tts_output_*.mp3"):
     os.remove(file)
 
-# --- Input Area (placed after chat) ---
+# --- Input Area (after chat display) ---
 st.markdown("<div class='input-area'>", unsafe_allow_html=True)
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
@@ -154,7 +153,7 @@ if send_clicked and user_input.strip():
         </audio>
         """, unsafe_allow_html=True)
 
-        # Auto scroll to bottom
+        # Auto-scroll effect
         st.experimental_rerun()
 
     except Exception as e:
@@ -169,7 +168,7 @@ with chat_display.container():
         st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Clear Chat ---
+# --- Clear Chat Button ---
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
     st.experimental_rerun()
