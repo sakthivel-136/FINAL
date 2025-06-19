@@ -16,9 +16,9 @@ from gtts import gTTS
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
-
 SENDER_EMAIL = ("kamarajengg.edu.in@Gmail.com ")
 SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
+
 # --- Page Setup ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
@@ -105,30 +105,16 @@ vectorizer, vectors, df = load_vector_data()
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🤖", "Hello! I'm your KCET Assistant. Ask me anything.")]
 
-# --- Display Chat ---
-st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
-for speaker, msg in st.session_state.chat_log:
-    align = 'right' if speaker == '👤' else 'left'
-    bg = '#444' if speaker == '👤' else '#222'
-    st.markdown(f"<div style='background-color:{bg}; padding:10px; border-radius:10px; text-align:{align}; margin:5px 0;'>"
-                f"<b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
-st.markdown("</div>", unsafe_allow_html=True)
-
 # --- Input Form ---
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
     submitted = col2.form_submit_button("\u27a4")
 
-# --- Clear Button ---
-if st.button("🧹 Clear Chat"):
-    st.session_state.chat_log = [("🤖", "Hello! I'm your KCET Assistant. Ask me anything.")]
-    st.rerun()
-
 # --- Chat Logic ---
 if submitted and user_input.strip():
     user_msg = user_input.strip()
-    st.session_state.chat_log.append(("👤", user_msg))
+    st.session_state.chat_log.append(("\ud83d\udc64", user_msg))
 
     vec = vectorizer.transform([user_msg.lower()])
     similarity = cosine_similarity(vec, vectors)
@@ -140,7 +126,6 @@ if submitted and user_input.strip():
     else:
         full_response = "❌ Sorry, I couldn't understand that. Please rephrase."
 
-    # Generate TTS audio first
     try:
         tts = gTTS(text=full_response, lang='en')
         audio_file = f"tts_{uuid.uuid4().hex}.mp3"
@@ -159,7 +144,7 @@ if submitted and user_input.strip():
     except Exception as e:
         st.error(f"TTS error: {e}")
 
-    # Typing animation simulation
+    # Simulate typing before displaying message
     bot_msg = ""
     placeholder = st.empty()
     for char in full_response:
@@ -169,6 +154,20 @@ if submitted and user_input.strip():
         time.sleep(0.015)
 
     st.session_state.chat_log.append(("🤖", full_response))
+    st.rerun()
+
+# --- Display Chat ---
+st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
+for speaker, msg in st.session_state.chat_log:
+    align = 'right' if speaker == '\ud83d\udc64' else 'left'
+    bg = '#444' if speaker == '\ud83d\udc64' else '#222'
+    st.markdown(f"<div style='background-color:{bg}; padding:10px; border-radius:10px; text-align:{align}; margin:5px 0;'>"
+                f"<b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
+
+# --- Clear Button ---
+if st.button("🧹 Clear Chat"):
+    st.session_state.chat_log = [("🤖", "Hello! I'm your KCET Assistant. Ask me anything.")]
     st.rerun()
 
 # --- Floating Button to Show Email PDF Form ---
