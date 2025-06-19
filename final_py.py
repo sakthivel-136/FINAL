@@ -18,7 +18,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 # Constants
 VECTOR_FILE = "vectorized (3).pkl"
 CSV_FILE = "kcet.csv"
-THRESHOLD = 0.8
+THRESHOLD = 0.6  # Lowered threshold for better match
 
 # Page Config
 st.set_page_config(page_title="🎓 KCET FAQ Chatbot", layout="centered")
