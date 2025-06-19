@@ -2,11 +2,8 @@ import streamlit as st
 import pandas as pd
 import pickle
 import os
-import base64
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from gtts import gTTS
-import uuid
 
 # Constants
 VECTOR_FILE = "vectorized.pkl"
@@ -149,26 +146,5 @@ if "pending_input" in st.session_state:
     # Add bot response
     st.session_state.chat_log.append(("🤖", response))
 
-    # --- TTS Play with invisible HTML audio ---
-    try:
-        tts = gTTS(text=response, lang='en')
-        audio_file = f"tts_{uuid.uuid4().hex}.mp3"
-        tts.save(audio_file)
-
-        with open(audio_file, "rb") as f:
-            audio_bytes = f.read()
-            b64 = base64.b64encode(audio_bytes).decode()
-            audio_html = f"""
-                <html><body>
-                <audio autoplay="true">
-                    <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
-                </audio>
-                </body></html>
-            """
-            st.components.v1.html(audio_html, height=0)
-        os.remove(audio_file)
-    except Exception as e:
-        st.error(f"TTS error: {e}")
-
-    # Force rerun to show new chat message
+    # Show updated chat
     st.rerun()
