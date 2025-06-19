@@ -108,7 +108,11 @@ vectorizer, vectors, df = load_pickle()
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
 
-# --- Input Area ---
+# --- Clean old audio files ---
+for file in glob.glob("tts_output_*.mp3"):
+    os.remove(file)
+
+# --- Input Area (placed after chat) ---
 st.markdown("<div class='input-area'>", unsafe_allow_html=True)
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
@@ -118,11 +122,7 @@ with st.form("chat_form", clear_on_submit=True):
         send_clicked = st.form_submit_button("➤")
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Clean old audio files ---
-for file in glob.glob("tts_output_*.mp3"):
-    os.remove(file)
-
-# --- Chat Logic ---
+# --- Chat Processing Logic ---
 if send_clicked and user_input.strip():
     query = user_input.strip().lower()
     st.session_state.chat_log.append(("👤", user_input))
@@ -139,13 +139,10 @@ if send_clicked and user_input.strip():
             answer = "❌ Sorry, I couldn't understand that. Please try rephrasing."
 
         # Typing animation
-        typing_placeholder = st.empty()
         typed_text = ""
         for char in answer:
             typed_text += char
-            typing_placeholder.markdown(f"<div class='bot-msg'><b>🤖</b>: {typed_text}</div>", unsafe_allow_html=True)
-            time.sleep(0.015)
-
+            time.sleep(0.01)
         st.session_state.chat_log.append(("🤖", answer))
 
         # Audio playback
@@ -157,15 +154,20 @@ if send_clicked and user_input.strip():
         </audio>
         """, unsafe_allow_html=True)
 
+        # Auto scroll to bottom
+        st.experimental_rerun()
+
     except Exception as e:
         st.error(f"⚠️ Error: {e}")
 
-# --- Chat Display (AFTER chat update) ---
-st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
-for speaker, msg in st.session_state.chat_log:
-    css_class = "user-msg" if speaker == "👤" else "bot-msg"
-    st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
-st.markdown("</div>", unsafe_allow_html=True)
+# --- Chat Display AFTER processing ---
+chat_display = st.empty()
+with chat_display.container():
+    st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
+    for speaker, msg in st.session_state.chat_log:
+        css_class = "user-msg" if speaker == "👤" else "bot-msg"
+        st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # --- Clear Chat ---
 if st.button("🧹 Clear Chat"):
