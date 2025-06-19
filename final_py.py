@@ -144,7 +144,8 @@ if user_input:
         st.session_state.chat_log.append(("🤖", answer))
 
         # Clear the input field by resetting the key
-        st.experimental_rerun()
+        st.rerun()
+
 
     except Exception as e:
         st.error(f"⚠️ Error: {e}")
@@ -153,5 +154,6 @@ if user_input:
 st.markdown("<br><br>", unsafe_allow_html=True)
 if st.button("🧹 Clear Chat", use_container_width=True):
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
-    st.experimental_rerun()
+    st.rerun()
+
 
