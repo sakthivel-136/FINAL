@@ -1,5 +1,4 @@
 
-
 import streamlit as st
 import pandas as pd
 import pickle
@@ -43,10 +42,30 @@ st.markdown("""
         0% { transform: translateX(100%); }
         100% { transform: translateX(-100%); }
     }
+    .chat-header {
+        font-size: 28px;
+        color: white;
+        text-align: center;
+        padding: 10px 0 5px 0;
+        font-weight: bold;
+    }
+    .toggle-box {
+        position: fixed;
+        left: 10px;
+        bottom: 30px;
+        background-color: #222;
+        color: white;
+        padding: 10px;
+        border-radius: 10px;
+        box-shadow: 0 0 5px #000;
+        max-width: 300px;
+        z-index: 999;
+    }
     </style>
     <div class="scrolling-banner">
         💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
     </div>
+    <div class="chat-header">KCET Assistant</div>
 """, unsafe_allow_html=True)
 
 # --- Load Data ---
@@ -110,12 +129,17 @@ if submitted and user_input.strip():
     st.session_state.chat_log.append(("🤖", bot_msg))
     st.rerun()
 
-# --- PDF Export Section ---
-st.markdown("---")
-st.markdown("### 📅 Export Chat")
-email = st.text_input("Enter your email to receive the chat log (PDF):")
+# --- PDF Export Toggle ---
+st.markdown("""
+<div class="toggle-box">
+    <b>📤 Export Chat</b>
+""", unsafe_allow_html=True)
 
-if st.button("Send PDF to Email"):
+with st.form("email_form"):
+    email = st.text_input("Enter Email", placeholder="example@email.com")
+    send_btn = st.form_submit_button("Send")
+
+if send_btn:
     if not email or "@" not in email:
         st.error("⚠️ Please enter a valid email address.")
     else:
@@ -157,3 +181,6 @@ if st.button("Send PDF to Email"):
         finally:
             if os.path.exists(filename):
                 os.remove(filename)
+
+st.markdown("</div>", unsafe_allow_html=True)
+ename)
