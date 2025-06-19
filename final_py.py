@@ -1,3 +1,5 @@
+
+
 import streamlit as st
 import pandas as pd
 import pickle
@@ -9,12 +11,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 from fpdf import FPDF
 import smtplib
 from email.message import EmailMessage
-import re
 
 # --- Constants ---
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
+
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"  # Replace with your email
 SENDER_PASSWORD = "qwertyuiop123-"  # Replace with your app password
 
@@ -81,7 +83,7 @@ st.markdown("</div>", unsafe_allow_html=True)
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
-    submitted = col2.form_submit_button("➤")
+    submitted = col2.form_submit_button("\u27a4")
 
 # --- Clear Button ---
 if st.button("🧹 Clear Chat"):
@@ -110,31 +112,29 @@ if submitted and user_input.strip():
 
 # --- PDF Export Section ---
 st.markdown("---")
-st.markdown("### 📥 Export Chat")
+st.markdown("### 📅 Export Chat")
 email = st.text_input("Enter your email to receive the chat log (PDF):")
 
 if st.button("Send PDF to Email"):
     if not email or "@" not in email:
         st.error("⚠️ Please enter a valid email address.")
     else:
-        # Generate PDF
         pdf = FPDF()
         pdf.add_page()
         pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
         pdf.set_font("DejaVu", size=12)
 
         def clean_text(text):
-            return re.sub(r'[^\x00-\x7F]+', '', text)
+            return ''.join(c if ord(c) < 128 else '?' for c in text)
 
         for speaker, msg in st.session_state.chat_log:
-            safe_msg = f"{speaker}: {msg}"
+            safe_msg = clean_text(f"{speaker}: {msg}")
             pdf.multi_cell(0, 10, safe_msg)
 
         filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
-        pdf.output(filename)
-
-        # Email it
         try:
+            pdf.output(filename)
+
             msg = EmailMessage()
             msg['Subject'] = "KCET Chat Log"
             msg['From'] = SENDER_EMAIL
@@ -150,8 +150,10 @@ if st.button("Send PDF to Email"):
                 smtp.send_message(msg)
 
             st.success("✅ PDF has been emailed successfully!")
+
         except Exception as e:
-            st.error(f"❌ Failed to send email: {e}")
+            st.error(f"❌ Failed to send PDF or Email: {e}")
+
         finally:
             if os.path.exists(filename):
                 os.remove(filename)
