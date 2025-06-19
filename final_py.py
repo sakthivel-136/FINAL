@@ -16,12 +16,8 @@ from gtts import gTTS
 
 try:
     from pydub import AudioSegment
-    from pydub.playback import play
-    from pydub.utils import mediainfo
 except ImportError:
     AudioSegment = None
-    play = None
-    mediainfo = None
 
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
@@ -132,22 +128,15 @@ if submitted and user_input.strip():
         audio_file = f"tts_{uuid.uuid4().hex}.mp3"
         tts.save(audio_file)
 
-        audio_tag = f"""
-            <audio autoplay>
-                <source src="data:audio/mp3;base64,{base64.b64encode(open(audio_file, 'rb').read()).decode()}" type="audio/mp3">
-            </audio>
-        """
-        st.markdown(audio_tag, unsafe_allow_html=True)
+        with open(audio_file, "rb") as f:
+            audio_bytes = f.read()
+            st.audio(audio_bytes, format="audio/mp3")
 
-        if mediainfo:
-            try:
-                info = mediainfo(audio_file)
-                duration_sec = float(info['duration']) if 'duration' in info else 4.0
-                time.sleep(math.ceil(duration_sec))
-            except:
-                time.sleep(4)
+        if AudioSegment:
+            duration = AudioSegment.from_file(audio_file).duration_seconds
+            time.sleep(math.ceil(duration))
         else:
-            time.sleep(4)
+            time.sleep(5)
 
         os.remove(audio_file)
     except Exception as e:
