@@ -22,9 +22,13 @@ SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
 # --- Page Setup ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-# --- Scroll Banner ---
+# --- Custom CSS ---
 st.markdown("""
     <style>
+    body {
+        background-color: #000;
+        color: white;
+    }
     .scrolling-banner {
         overflow: hidden;
         white-space: nowrap;
@@ -37,7 +41,6 @@ st.markdown("""
         font-size: 16px;
         text-align: center;
     }
-
     @keyframes scroll-left {
         0% { transform: translateX(100%); }
         100% { transform: translateX(-100%); }
@@ -51,7 +54,7 @@ st.markdown("""
     }
     .email-fab {
         position: fixed;
-        left: 5px;
+        left: 15px;
         bottom: 20px;
         background-color: #1c1c1c;
         border-radius: 50%;
@@ -65,10 +68,15 @@ st.markdown("""
         cursor: pointer;
         z-index: 1001;
         box-shadow: 0px 0px 6px #000;
+        transition: transform 0.2s;
+        animation: pulse 2s infinite;
+    }
+    .email-fab:hover {
+        transform: scale(1.1);
     }
     .email-popup {
         position: fixed;
-        left: 70px;
+        left: 75px;
         bottom: 30px;
         background-color: #222;
         padding: 16px;
@@ -77,7 +85,22 @@ st.markdown("""
         z-index: 1002;
         box-shadow: 0 0 5px #000;
     }
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(255,255,255, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(255,255,255, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255,255,255, 0); }
+    }
     </style>
+""", unsafe_allow_html=True)
+
+# --- Light/Dark Mode Toggle ---
+dark_mode = st.sidebar.toggle("🌙 Dark Mode", value=True)
+if dark_mode:
+    st.markdown("""<style>body { background-color: #000; color: white; }</style>""", unsafe_allow_html=True)
+else:
+    st.markdown("""<style>body { background-color: #fff; color: black; }</style>""", unsafe_allow_html=True)
+
+st.markdown("""
     <div class="scrolling-banner">
         💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
     </div>
@@ -105,10 +128,11 @@ vectorizer, vectors, df = load_vector_data()
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
 
-# --- Input Form at Bottom ---
+# --- Input Form at Bottom with autofocus ---
+st.markdown("""<script>document.getElementById('chat_input_box').focus();</script>""", unsafe_allow_html=True)
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
-    user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
+    user_input = col1.text_input("Type your question here...", key="chat_input_box", label_visibility="collapsed")
     submitted = col2.form_submit_button("➤")
 
 # --- Chat Logic ---
@@ -121,10 +145,7 @@ if submitted and user_input.strip():
     max_sim = similarity.max()
     idx = similarity.argmax()
 
-    if max_sim >= THRESHOLD:
-        full_response = df.iloc[idx]['Answer']
-    else:
-        full_response = "❌ Sorry, I couldn't understand that. Please rephrase."
+    full_response = df.iloc[idx]['Answer'] if max_sim >= THRESHOLD else "❌ Sorry, I couldn't understand that. Please rephrase."
 
     # --- TTS First ---
     try:
