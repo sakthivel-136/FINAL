@@ -13,7 +13,7 @@ VECTOR_FILE = "vectorized (3).pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
 
-# Page config
+# Page setup
 st.set_page_config(page_title="🎓 KCET FAQ Chatbot", layout="centered")
 
 # Banner + CSS
@@ -76,7 +76,7 @@ st.markdown("""
 st.markdown("<div class='marquee'>💼 100% Placement Assistance | 👩‍🏫 Well-trained Faculty | 🎓 Industry-ready Curriculum | 🧠 Hackathons & Internships</div>", unsafe_allow_html=True)
 st.markdown("<h1 style='text-align:center;'>🤖 KCET Bot Assistant</h1><hr>", unsafe_allow_html=True)
 
-# Load vectorizer and data
+# Load vectorizer & data
 @st.cache_data
 def load_or_vectorize():
     if os.path.exists(VECTOR_FILE):
@@ -102,21 +102,21 @@ if "chat_log" not in st.session_state:
 if "chat_input" not in st.session_state:
     st.session_state.chat_input = ""
 
-# TTS function
+# TTS
 def speak(text):
     tts = gTTS(text)
     mp3_fp = BytesIO()
     tts.write_to_fp(mp3_fp)
     st.audio(mp3_fp.getvalue(), format="audio/mp3")
 
-# Chat display
+# Display messages
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for speaker, msg in st.session_state.chat_log:
     css_class = "user-msg" if speaker == "👤" else "bot-msg"
     st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# Auto-scroll to bottom
+# Auto-scroll
 st.markdown("""
     <script>
         var body = window.parent.document.querySelector(".main");
@@ -124,13 +124,18 @@ st.markdown("""
     </script>
 """, unsafe_allow_html=True)
 
-# 🎙️ Voice Input with streamlit-mic-recorder
-voice_text = mic_recorder(start_prompt="🎙️ Start Recording", stop_prompt="⏹️ Stop", just_once=True, key='recorder')
+# 🎙️ Mic recorder input
+voice_text = mic_recorder(
+    start_prompt="🎙️ Start Recording",
+    stop_prompt="⏹️ Stop",
+    just_once=True,
+    key="mic"
+)
 
-if voice_text and voice_text.strip():
-    st.session_state.chat_input = voice_text
+if voice_text and isinstance(voice_text, dict) and "text" in voice_text and voice_text["text"].strip():
+    st.session_state.chat_input = voice_text["text"]
 
-# Chat input (bottom form)
+# Chat input + form
 with st.form("chat_form", clear_on_submit=False):
     col1, col2 = st.columns([8, 1])
     with col1:
@@ -138,7 +143,7 @@ with st.form("chat_form", clear_on_submit=False):
     with col2:
         submitted = st.form_submit_button("➤")
 
-# Message handling
+# On send
 if submitted and user_input.strip():
     query = user_input.strip().lower()
     try:
@@ -159,7 +164,7 @@ if submitted and user_input.strip():
     except Exception as e:
         st.error(f"⚠️ Error: {e}")
 
-# Clear button
+# Clear chat
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
     st.session_state.chat_input = ""
