@@ -26,16 +26,27 @@ st.set_page_config(page_title="KCET Chatbot", layout="centered")
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/2922/2922506.png", width=100)
     st.title("⚙️ Settings")
-    mode = st.radio("Select Theme", ["Dark", "Light"], index=0)
+    mode = st.radio("Select Theme", ["Dark", "Light", "KCET Blue"], index=0)
     export_option = st.checkbox("Enable Export Options")
     history_toggle = st.checkbox("Show Chat History")
+    user_name = st.text_input("Your Name", value="User")
 
 # --- Theme Color ---
-dark_mode = mode == "Dark"
-background = "#111" if dark_mode else "#fff"
-text_color = "white" if dark_mode else "black"
-user_bg = "#444" if dark_mode else "#ccc"
-bot_bg = "#222" if dark_mode else "#eee"
+if mode == "Dark":
+    background = "#111"
+    text_color = "white"
+    user_bg = "#444"
+    bot_bg = "#222"
+elif mode == "Light":
+    background = "#fff"
+    text_color = "black"
+    user_bg = "#ccc"
+    bot_bg = "#eee"
+else:  # KCET Blue Theme
+    background = "#e6f0ff"
+    text_color = "#003366"
+    user_bg = "#cce0ff"
+    bot_bg = "#b3d1ff"
 
 # --- Banner & Style ---
 st.markdown(f"""
@@ -112,22 +123,9 @@ with st.form("chat_form", clear_on_submit=True):
     user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
     submitted = col2.form_submit_button("➤")
 
-# --- Display Chat History ---
-if history_toggle:
-    st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
-    for speaker, msg in st.session_state.chat_log:
-        align = 'right' if speaker == '👤' else 'left'
-        bg = user_bg if speaker == '👤' else bot_bg
-        avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker == "👤" else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
-        st.markdown(f"""
-        <div class='message' style='background-color:{bg}; text-align:{align}; color:{text_color};'>
-            <img src='{avatar}' class='avatar'/>
-            <div><b>{speaker}</b>: {msg}</div>
-        </div>""", unsafe_allow_html=True)
-
 # --- Chat Logic ---
 if submitted and user_input.strip():
-    st.session_state.chat_log.append(("👤", user_input.strip()))
+    st.session_state.chat_log.append((f"👤 {user_name}", user_input.strip()))
 
     vec = vectorizer.transform([user_input.lower()])
     similarity = cosine_similarity(vec, vectors)
@@ -150,12 +148,26 @@ if submitted and user_input.strip():
                 </audio>
             """
             st.markdown(audio_html, unsafe_allow_html=True)
+        time.sleep(2)
         os.remove(audio_file)
     except Exception as e:
         st.error(f"TTS error: {e}")
 
     st.session_state.chat_log.append(("🧠", full_response))
     st.rerun()
+
+# --- Display Chat History ---
+if history_toggle:
+    st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
+    for speaker, msg in st.session_state.chat_log:
+        align = 'right' if speaker.startswith('👤') else 'left'
+        bg = user_bg if speaker.startswith('👤') else bot_bg
+        avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker.startswith('👤') else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
+        st.markdown(f"""
+        <div class='message' style='background-color:{bg}; text-align:{align}; color:{text_color};'>
+            <img src='{avatar}' class='avatar'/>
+            <div><b>{speaker}</b>: {msg}</div>
+        </div>""", unsafe_allow_html=True)
 
 # --- Export Option ---
 if export_option:
@@ -196,10 +208,10 @@ if export_option:
                             f.write(f"[{timestamp}] {speaker}: {msg}\n")
 
                 msg = EmailMessage()
-                msg['Subject'] = "KCET Chat Log"
+                msg['Subject'] = f"KCET Chat Log - {user_name}"
                 msg['From'] = SENDER_EMAIL
                 msg['To'] = email
-                msg.set_content("Here is your chat log with the KCET Assistant.")
+                msg.set_content(f"Here is your chat log with the KCET Assistant, {user_name}.")
 
                 with open(attachment_path, "rb") as f:
                     maintype, subtype = ("application", "octet-stream")
