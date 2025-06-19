@@ -114,7 +114,8 @@ with st.form("chat_form", clear_on_submit=True):
 # --- Chat Logic ---
 if submitted and user_input.strip():
     user_msg = user_input.strip()
-    st.session_state.chat_log.append(("\ud83d\udc64", user_msg))
+    st.session_state.chat_log.append(("👤", user_msg))
+
 
     vec = vectorizer.transform([user_msg.lower()])
     similarity = cosine_similarity(vec, vectors)
@@ -159,8 +160,9 @@ if submitted and user_input.strip():
 # --- Display Chat ---
 st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg in st.session_state.chat_log:
-    align = 'right' if speaker == '\ud83d\udc64' else 'left'
-    bg = '#444' if speaker == '\ud83d\udc64' else '#222'
+    align = 'right' if speaker == '👤' else 'left'
+bg = '#444' if speaker == '👤' else '#222'
+
     st.markdown(f"<div style='background-color:{bg}; padding:10px; border-radius:10px; text-align:{align}; margin:5px 0;'>"
                 f"<b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
