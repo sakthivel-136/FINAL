@@ -43,10 +43,10 @@ st.markdown("""
         max-width: 720px;
         margin: 0 auto 20px auto;
         overflow-y: auto;
-        padding: 10px 20px;
+        padding: 4px 16px;
         background: #0f0f0f;
         border: 1px solid #222;
-        border-radius: 12px;
+        border-radius: 8px;
     }
     .user-msg, .bot-msg {
         padding: 12px 16px;
