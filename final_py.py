@@ -24,8 +24,13 @@ st.set_page_config(page_title="🎓 KCET FAQ Chatbot", layout="centered")
 # --- Custom CSS for modern UI ---
 st.markdown("""
     <style>
+    .stApp {
+        background-image: url("https://images.unsplash.com/photo-1600585154340-be6161a56a0c");  /* example image URL */
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
     body {
-        background-color: #0f0f0f;
         color: white;
         font-family: 'Segoe UI', sans-serif;
     }
@@ -39,7 +44,7 @@ st.markdown("""
         font-weight: bold;
         padding: 10px 0;
         font-size: 18px;
-        background: #111;
+        background: rgba(0, 0, 0, 0.7);
         text-align: center;
     }
     @keyframes marquee {
@@ -56,21 +61,20 @@ st.markdown("""
         margin: 8px 0;
         max-width: 80%;
         word-wrap: break-word;
+        background: rgba(0, 0, 0, 0.7);
     }
     .user-msg {
-        background-color: #333;
         color: white;
         margin-left: auto;
         text-align: right;
     }
     .bot-msg {
-        background-color: #111;
         color: white;
         margin-right: auto;
         text-align: left;
     }
     .input-box input {
-        background-color: #1e1e1e;
+        background-color: rgba(30,30,30,0.8);
         color: white;
         border: 1px solid #444;
         border-radius: 8px;
@@ -82,7 +86,7 @@ st.markdown("""
         outline: none;
     }
     .stButton>button {
-        background-color: #444 !important;
+        background-color: rgba(68, 68, 68, 0.9) !important;
         color: white !important;
         border-radius: 8px;
         border: none;
