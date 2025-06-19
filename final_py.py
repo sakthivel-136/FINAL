@@ -119,8 +119,15 @@ if st.button("🧹 Clear Chat"):
     st.rerun()
 
 # --- On Input Submit ---
-if submitted and user_text:
-    user_msg = user_text.strip()
+# Save user text and flag that a message was submitted
+if submitted and user_text.strip():
+    st.session_state.pending_input = user_text.strip()
+
+# Process the input after form is rendered
+if "pending_input" in st.session_state:
+    user_msg = st.session_state.pending_input
+    del st.session_state.pending_input  # Clear after processing
+
     st.session_state.chat_log.append(("👤", user_msg))
 
     query_vec = vectorizer.transform([user_msg.lower()])
