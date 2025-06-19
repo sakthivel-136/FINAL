@@ -23,28 +23,9 @@ st.markdown("""
         color: white;
         font-family: 'Segoe UI', sans-serif;
     }
-    .banner {
-        width: 100%;
-        overflow: hidden;
-        white-space: nowrap;
-        box-sizing: border-box;
-        background-color: #111;
-        color: #FFD700;
-        font-weight: bold;
-        padding: 10px 0;
-    }
-    .banner-content {
-        display: inline-block;
-        padding-left: 100%;
-        animation: scroll-left 15s linear infinite;
-    }
-    @keyframes scroll-left {
-        0% { transform: translateX(0%); }
-        100% { transform: translateX(-100%); }
-    }
     .chat-container {
-        padding: 4px 16px;
-        margin-top: 10px;
+        padding: 2px 10px;
+        margin-bottom: 6px;
     }
     .user-msg, .bot-msg {
         padding: 10px 14px;
@@ -75,15 +56,22 @@ st.markdown("""
     .stButton>button:hover {
         background-color: #777 !important;
     }
+    .banner {
+        background-color: #111;
+        color: #FFD700;
+        font-weight: bold;
+        padding: 6px;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # --- Banner ---
 st.markdown("""
     <div class='banner'>
-        <div class='banner-content'>
-            💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaborations
-        </div>
+        💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaborations
     </div>
 """, unsafe_allow_html=True)
 
@@ -91,7 +79,7 @@ st.markdown("""
 st.markdown("<h1 style='text-align: center;'>😁 KCET Bot Assistant</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border:1px solid #333;'>", unsafe_allow_html=True)
 
-# --- Load vectorizer and data ---
+# --- Load Vectorizer/Data ---
 @st.cache_data
 def load_vector_data():
     if os.path.exists(VECTOR_FILE):
@@ -108,33 +96,34 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# --- Session state ---
+# --- Session state for chat ---
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🤖", "📅 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
 
-# --- Display chat log ---
-if st.session_state.chat_log:
-    st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
-    for speaker, msg in st.session_state.chat_log:
-        css_class = "user-msg" if speaker == "👤" else "bot-msg"
-        st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+# --- Chat Display ---
+st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
+for speaker, msg in st.session_state.chat_log:
+    css_class = "user-msg" if speaker == "👤" else "bot-msg"
+    st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Input form (BOTTOM of page) ---
-with st.form("chat_input_form", clear_on_submit=True):
+# --- Input at Bottom ---
+with st.form("user_input_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
-    user_input = col1.text_input("Ask something...", key="user_input", label_visibility="collapsed")
-    send = col2.form_submit_button("➤")
+    user_text = col1.text_input("Ask here...", label_visibility="collapsed")
+    submitted = col2.form_submit_button("➤")
 
 # --- Clear Chat ---
-if st.button("🪯 Clear Chat"):
+if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = []
     st.rerun()
 
-# --- Handle message ---
-if send and user_input:
-    query = user_input.strip().lower()
-    query_vec = vectorizer.transform([query])
+# --- On Input Submit ---
+if submitted and user_text:
+    user_msg = user_text.strip()
+    st.session_state.chat_log.append(("👤", user_msg))
+
+    query_vec = vectorizer.transform([user_msg.lower()])
     similarity = cosine_similarity(query_vec, vectors)
     max_sim = similarity.max()
     idx = similarity.argmax()
@@ -144,22 +133,23 @@ if send and user_input:
     else:
         response = "❌ Sorry, I couldn't understand that. Please rephrase."
 
-    # Save to chat log
-    st.session_state.chat_log.append(("👤", user_input))
     st.session_state.chat_log.append(("🤖", response))
 
-    # --- TTS Audio ---
+    # --- Generate and play TTS ---
     try:
         tts = gTTS(text=response, lang='en')
         audio_file = f"tts_{uuid.uuid4().hex}.mp3"
         tts.save(audio_file)
+
         with open(audio_file, "rb") as f:
-            b64_audio = base64.b64encode(f.read()).decode()
-            st.markdown(f"""
+            audio_bytes = f.read()
+            b64 = base64.b64encode(audio_bytes).decode()
+            audio_html = f"""
                 <audio autoplay>
-                    <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
+                    <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
                 </audio>
-            """, unsafe_allow_html=True)
+            """
+            st.markdown(audio_html, unsafe_allow_html=True)
         os.remove(audio_file)
     except Exception as e:
-        st.error(f"TTS Error: {e}")
+        st.warning(f"Audio error: {e}")
