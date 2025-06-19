@@ -6,3 +6,4 @@ pandas
 gTTS
 SpeechRecognition
 scikit-learn
+streamlit-mic-recorder
