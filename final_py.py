@@ -87,13 +87,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Marquee Banner
+# --- Marquee Banner ---
 st.markdown("<div class='marquee'>💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Connect</div>", unsafe_allow_html=True)
 
-# App Title
+# --- App Title ---
 st.markdown("<h1 style='text-align:center;'>🤖 KCET Bot Assistant</h1><hr>", unsafe_allow_html=True)
 
-# Load vectorizer and dataset
+# --- Load Data ---
 @st.cache_data
 def load_pickle():
     if not os.path.exists(VECTOR_FILE):
@@ -105,15 +105,15 @@ def load_pickle():
 
 vectorizer, vectors, df = load_pickle()
 
-# Session state
+# --- Session State ---
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
 
-# Clean up old audio
+# --- Clean old audio files ---
 for file in glob.glob("tts_output_*.mp3"):
     os.remove(file)
 
-# Display chat
+# --- Chat Display ---
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for speaker, msg in st.session_state.chat_log:
     css_class = "user-msg" if speaker == "👤" else "bot-msg"
@@ -130,7 +130,7 @@ with st.form("chat_form", clear_on_submit=True):
         send_clicked = st.form_submit_button("➤")
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Chat Logic ---
+# --- Chatbot Logic ---
 if send_clicked and user_input.strip():
     query = user_input.strip().lower()
     st.session_state.chat_log.append(("👤", user_input))
@@ -153,14 +153,12 @@ if send_clicked and user_input.strip():
             typing_placeholder.markdown(f"<div class='bot-msg'><b>🤖</b>: {typed_text}</div>", unsafe_allow_html=True)
             time.sleep(0.015)
 
-        # Save to chat log
+        # Save bot message
         st.session_state.chat_log.append(("🤖", answer))
 
-        # Voice
+        # TTS audio playback
         audio_file = f"tts_output_{uuid.uuid4().hex}.mp3"
-        tts = gTTS(answer)
-        tts.save(audio_file)
-
+        gTTS(text=answer).save(audio_file)
         st.markdown(f"""
         <audio autoplay="true">
           <source src="{audio_file}" type="audio/mpeg">
