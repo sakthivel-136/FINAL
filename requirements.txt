@@ -10,3 +10,4 @@ streamlit-mic-recorder
 fpdf
 uuid
 secure-smtplib
+pydub
