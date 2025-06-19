@@ -16,7 +16,7 @@ from gtts import gTTS
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
-S# ✅ Set your sender email and app password
+
 SENDER_EMAIL = ("kamarajengg.edu.in@Gmail.com ")
 SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
 # --- Page Setup ---
