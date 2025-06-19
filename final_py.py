@@ -1,5 +1,3 @@
-
-
 import streamlit as st
 import pandas as pd
 import pickle
@@ -126,4 +124,34 @@ if st.button("Send PDF to Email"):
         pdf.set_font("DejaVu", size=12)
 
         def clean_text(text):
-            return re.sub(r'[^
+            return re.sub(r'[^\x00-\x7F]+', '', text)
+
+        for speaker, msg in st.session_state.chat_log:
+            safe_msg = f"{speaker}: {msg}"
+            pdf.multi_cell(0, 10, safe_msg)
+
+        filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
+        pdf.output(filename)
+
+        # Email it
+        try:
+            msg = EmailMessage()
+            msg['Subject'] = "KCET Chat Log"
+            msg['From'] = SENDER_EMAIL
+            msg['To'] = email
+            msg.set_content("Here is your chat log with the KCET Assistant.")
+
+            with open(filename, "rb") as f:
+                file_data = f.read()
+                msg.add_attachment(file_data, maintype='application', subtype='pdf', filename="kcet_chat.pdf")
+
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
+                smtp.send_message(msg)
+
+            st.success("✅ PDF has been emailed successfully!")
+        except Exception as e:
+            st.error(f"❌ Failed to send email: {e}")
+        finally:
+            if os.path.exists(filename):
+                os.remove(filename)
