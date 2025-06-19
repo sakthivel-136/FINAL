@@ -14,20 +14,21 @@ from sklearn.metrics.pairwise import cosine_similarity
 from fpdf import FPDF
 from gtts import gTTS
 
-# Optional: fallback if mediainfo is unavailable
 try:
+    from pydub import AudioSegment
+    from pydub.playback import play
     from pydub.utils import mediainfo
 except ImportError:
+    AudioSegment = None
+    play = None
     mediainfo = None
 
-# --- Constants ---
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
 SENDER_EMAIL = ("kamarajengg.edu.in@Gmail.com ")
 SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
 
-# --- Theme Setup ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
 with st.sidebar:
@@ -37,14 +38,12 @@ with st.sidebar:
     export_option = st.checkbox("Enable Export Options")
     history_toggle = st.checkbox("Show Chat History")
 
-# --- Theme Color ---
 dark_mode = mode == "Dark"
 background = "#111" if dark_mode else "#fff"
 text_color = "white" if dark_mode else "black"
 user_bg = "#444" if dark_mode else "#ccc"
 bot_bg = "#222" if dark_mode else "#eee"
 
-# --- Banner & Style ---
 st.markdown(f"""
     <style>
     .scrolling-banner {{
@@ -113,13 +112,11 @@ vectorizer, vectors, df = load_vector_data()
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
 
-# --- Input Form ---
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
     submitted = col2.form_submit_button("➤")
 
-# --- Chat Logic ---
 if submitted and user_input.strip():
     st.session_state.chat_log.append(("👤", user_input.strip()))
 
@@ -135,25 +132,23 @@ if submitted and user_input.strip():
         audio_file = f"tts_{uuid.uuid4().hex}.mp3"
         tts.save(audio_file)
 
-        with open(audio_file, "rb") as f:
-            audio_bytes = f.read()
-            b64 = base64.b64encode(audio_bytes).decode()
-            audio_html = f"""
-                <audio autoplay>
-                    <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
-                </audio>
-            """
-            st.markdown(audio_html, unsafe_allow_html=True)
+        audio_tag = f"""
+            <audio autoplay>
+                <source src="data:audio/mp3;base64,{base64.b64encode(open(audio_file, 'rb').read()).decode()}" type="audio/mp3">
+            </audio>
+        """
+        st.markdown(audio_tag, unsafe_allow_html=True)
 
-        duration_sec = 4.0
         if mediainfo:
             try:
                 info = mediainfo(audio_file)
                 duration_sec = float(info['duration']) if 'duration' in info else 4.0
+                time.sleep(math.ceil(duration_sec))
             except:
-                pass
+                time.sleep(4)
+        else:
+            time.sleep(4)
 
-        time.sleep(math.ceil(duration_sec))
         os.remove(audio_file)
     except Exception as e:
         st.error(f"TTS error: {e}")
@@ -161,7 +156,6 @@ if submitted and user_input.strip():
     st.session_state.chat_log.append(("🧠", full_response))
     st.rerun()
 
-# --- Display Chat History ---
 if history_toggle:
     st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
     for speaker, msg in st.session_state.chat_log:
@@ -174,7 +168,6 @@ if history_toggle:
             <div><b>{speaker}</b>: {msg}</div>
         </div>""", unsafe_allow_html=True)
 
-# --- Export Option ---
 if export_option:
     st.subheader("📤 Export Chat")
     email = st.text_input("Email Address")
@@ -240,7 +233,6 @@ if export_option:
                 if os.path.exists(attachment_path):
                     os.remove(attachment_path)
 
-# --- Clear Chat Button ---
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
     st.rerun()
