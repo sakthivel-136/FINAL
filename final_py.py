@@ -109,13 +109,12 @@ if "chat_log" not in st.session_state:
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
-    submitted = col2.form_submit_button("\u27a4")
+    submitted = col2.form_submit_button("➤")
 
 # --- Chat Logic ---
 if submitted and user_input.strip():
     user_msg = user_input.strip()
     st.session_state.chat_log.append(("👤", user_msg))
-
 
     vec = vectorizer.transform([user_msg.lower()])
     similarity = cosine_similarity(vec, vectors)
@@ -145,7 +144,6 @@ if submitted and user_input.strip():
     except Exception as e:
         st.error(f"TTS error: {e}")
 
-    # Simulate typing before displaying message
     bot_msg = ""
     placeholder = st.empty()
     for char in full_response:
@@ -161,8 +159,7 @@ if submitted and user_input.strip():
 st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg in st.session_state.chat_log:
     align = 'right' if speaker == '👤' else 'left'
-bg = '#444' if speaker == '👤' else '#222'
-
+    bg = '#444' if speaker == '👤' else '#222'
     st.markdown(f"<div style='background-color:{bg}; padding:10px; border-radius:10px; text-align:{align}; margin:5px 0;'>"
                 f"<b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
