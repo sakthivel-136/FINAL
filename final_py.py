@@ -2,86 +2,25 @@ import streamlit as st
 import pandas as pd
 import pickle
 import os
+import uuid
+import time
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from fpdf import FPDF
+import smtplib
+from email.message import EmailMessage
 
-# Constants
+# --- Constants ---
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
+SENDER_EMAIL = "your_email@gmail.com"  # Replace with your email
+SENDER_PASSWORD = "your_app_password"  # Replace with your app password
 
-st.set_page_config(page_title="🎓 KCET FAQ Chatbot", layout="centered")
+# --- Page Setup ---
+st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-# --- Custom CSS ---
-st.markdown("""
-    <style>
-    body {
-        background-color: #0f0f0f;
-        color: white;
-        font-family: 'Segoe UI', sans-serif;
-    }
-    .chat-container {
-        padding: 4px 12px;
-        margin-bottom: 10px;
-    }
-    .user-msg, .bot-msg {
-        padding: 10px 16px;
-        border-radius: 20px;
-        margin: 6px 0;
-        max-width: 85%;
-        word-wrap: break-word;
-    }
-    .user-msg {
-        background-color: #444;
-        color: white;
-        margin-left: auto;
-        text-align: right;
-    }
-    .bot-msg {
-        background-color: #1c1c1c;
-        color: white;
-        margin-right: auto;
-        text-align: left;
-    }
-    .stButton>button {
-        background-color: #555 !important;
-        color: white !important;
-        border-radius: 8px;
-        padding: 10px 16px;
-        margin-top: 4px;
-    }
-    .stButton>button:hover {
-        background-color: #777 !important;
-    }
-    .banner {
-        background-color: #111;
-        color: #FFD700;
-        font-weight: bold;
-        padding: 8px;
-        text-align: center;
-        white-space: nowrap;
-        overflow: hidden;
-        animation: scroll-left 20s linear infinite;
-    }
-    @keyframes scroll-left {
-        0% { transform: translateX(100%); }
-        100% { transform: translateX(-100%); }
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- Banner ---
-st.markdown("""
-    <div class='banner'>
-        💼 100% Placement | 👩‍🏫 Experienced Faculty | 🧪 Research Labs | 🧠 Hackathons | 🤝 Industry Collaboration | 🌐 Autonomous Institution
-    </div>
-""", unsafe_allow_html=True)
-
-# --- Title ---
-st.markdown("<h1 style='text-align: center;'>🤖 KCET Bot Assistant</h1>", unsafe_allow_html=True)
-st.markdown("<hr style='border:1px solid #333;'>", unsafe_allow_html=True)
-
-# --- Load Vectorizer & Data ---
+# --- Load Data ---
 @st.cache_data
 def load_vector_data():
     if os.path.exists(VECTOR_FILE):
@@ -98,53 +37,87 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# --- Session State ---
+# --- Chat History ---
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
+    st.session_state.chat_log = [("🤖", "Hello! I'm your KCET Assistant. Ask me anything.")]
 
 # --- Display Chat ---
-st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
+st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg in st.session_state.chat_log:
-    css_class = "user-msg" if speaker == "👤" else "bot-msg"
-    st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
+    align = 'right' if speaker == '👤' else 'left'
+    bg = '#444' if speaker == '👤' else '#222'
+    st.markdown(f"<div style='background-color:{bg}; padding:10px; border-radius:10px; text-align:{align}; margin:5px 0;'>"
+                f"<b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Input Area at Bottom ---
+# --- Input Form ---
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
     submitted = col2.form_submit_button("➤")
 
-# --- Clear Chat Button ---
+# --- Clear Button ---
 if st.button("🧹 Clear Chat"):
-    st.session_state.chat_log = []
+    st.session_state.chat_log = [("🤖", "Hello! I'm your KCET Assistant. Ask me anything.")]
     st.rerun()
 
-# --- Handle Input Safely ---
+# --- Chat Logic ---
 if submitted and user_input.strip():
-    st.session_state.pending_input = user_input.strip()
-
-# --- Process After UI Renders ---
-if "pending_input" in st.session_state:
-    user_msg = st.session_state.pending_input
-    del st.session_state.pending_input
-
-    # Add user question
+    user_msg = user_input.strip()
     st.session_state.chat_log.append(("👤", user_msg))
 
-    # Vector search
-    query_vec = vectorizer.transform([user_msg.lower()])
-    similarity = cosine_similarity(query_vec, vectors)
+    vec = vectorizer.transform([user_msg.lower()])
+    similarity = cosine_similarity(vec, vectors)
     max_sim = similarity.max()
     idx = similarity.argmax()
 
     if max_sim >= THRESHOLD:
-        response = df.iloc[idx]['Answer']
+        bot_msg = df.iloc[idx]['Answer']
     else:
-        response = "❌ Sorry, I couldn't understand that. Please rephrase your question."
+        bot_msg = "❌ Sorry, I couldn't understand that. Please rephrase."
 
-    # Add bot response
-    st.session_state.chat_log.append(("🤖", response))
-
-    # Show updated chat
+    with st.spinner("🤖 Typing..."):
+        time.sleep(min(1.5, len(bot_msg) * 0.02))
+    st.session_state.chat_log.append(("🤖", bot_msg))
     st.rerun()
+
+# --- PDF Export Section ---
+st.markdown("---")
+st.markdown("### 📥 Export Chat")
+email = st.text_input("Enter your email to receive the chat log (PDF):")
+
+if st.button("Send PDF to Email"):
+    if not email or "@" not in email:
+        st.error("⚠️ Please enter a valid email address.")
+    else:
+        # Generate PDF
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        for speaker, msg in st.session_state.chat_log:
+            pdf.multi_cell(0, 10, f"{speaker}: {msg}")
+        filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
+        pdf.output(filename)
+
+        # Email it
+        try:
+            msg = EmailMessage()
+            msg['Subject'] = "KCET Chat Log"
+            msg['From'] = SENDER_EMAIL
+            msg['To'] = email
+            msg.set_content("Here is your chat log with the KCET Assistant.")
+
+            with open(filename, "rb") as f:
+                file_data = f.read()
+                msg.add_attachment(file_data, maintype='application', subtype='pdf', filename="kcet_chat.pdf")
+
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
+                smtp.send_message(msg)
+
+            st.success("✅ PDF has been emailed successfully!")
+        except Exception as e:
+            st.error(f"❌ Failed to send email: {e}")
+        finally:
+            if os.path.exists(filename):
+                os.remove(filename)
