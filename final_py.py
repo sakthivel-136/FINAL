@@ -111,8 +111,6 @@ vectorizer, vectors, df = load_pickle()
 # Session state
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
-if "chat_input" not in st.session_state:
-    st.session_state.chat_input = ""
 
 # Clean up old audio files
 for file in glob.glob("tts_output_*.mp3"):
@@ -125,18 +123,15 @@ for speaker, msg in st.session_state.chat_log:
     st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# Chat input + send
-col1, col2 = st.columns([10, 1])
-with col1:
-    user_input = st.text_input("Type your question here...", value=st.session_state.chat_input, key="chat_input", label_visibility="collapsed")
-with col2:
-    send_clicked = st.button("➤")
+# --- Chat Input ---
+with st.form("chat_form", clear_on_submit=True):
+    col1, col2 = st.columns([10, 1])
+    with col1:
+        user_input = st.text_input("Type your question here...", key="chat_input", label_visibility="collapsed")
+    with col2:
+        send_clicked = st.form_submit_button("➤")
 
-# ENTER to send logic
-if user_input and not send_clicked:
-    send_clicked = st.session_state.chat_input != user_input
-
-# Chat handling
+# --- Chat Logic ---
 if send_clicked and user_input.strip():
     query = user_input.strip().lower()
     st.session_state.chat_log.append(("👤", user_input))
@@ -159,16 +154,15 @@ if send_clicked and user_input.strip():
             typing_placeholder.markdown(f"<div class='bot-msg'><b>🤖</b>: {typed_text}</div>", unsafe_allow_html=True)
             time.sleep(0.015)
 
-        # Save bot message
+        # Save final bot message
         st.session_state.chat_log.append(("🤖", answer))
-        st.session_state.chat_input = ""
 
-        # Generate and autoplay TTS
+        # TTS Audio Generation
         audio_filename = f"tts_output_{uuid.uuid4().hex}.mp3"
         tts = gTTS(text=answer, lang='en')
         tts.save(audio_filename)
 
-        # Autoplay audio
+        # Autoplay response
         st.markdown(f"""
         <audio autoplay="true">
             <source src="{audio_filename}" type="audio/mpeg">
@@ -178,7 +172,7 @@ if send_clicked and user_input.strip():
     except Exception as e:
         st.error(f"⚠️ Error: {e}")
 
-# Clear Chat Button
+# --- Clear Chat ---
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
     st.session_state.chat_input = ""
