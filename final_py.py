@@ -7,6 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1nDDBJoshY8QJqi1oBTMM4uOt67h2tcKL
 """
 # final.py
+# final.py
 
 import streamlit as st
 import pandas as pd
@@ -26,7 +27,7 @@ st.set_page_config(page_title="🎓 KCET FAQ Chatbot", layout="centered")
 st.markdown("<h1 style='text-align: center;'>🤖 KCET Bot Assistant</h1>", unsafe_allow_html=True)
 st.markdown("<hr>", unsafe_allow_html=True)
 
-# Load vectorizer, data
+# Load vectorizer and data
 @st.cache_data
 def load_or_vectorize():
     if os.path.exists(VECTOR_FILE):
@@ -46,14 +47,14 @@ def load_or_vectorize():
 
 vectorizer, vectors, df = load_or_vectorize()
 
-# Session state initialization
+# Initialize chat history
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("🤖", "👋 Hello! I’m your KCET Assistant. Ask me anything about the college or exams.")]
+    st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
 
-# Chat UI
+# Chat section
 st.markdown("## 💬 Chat")
 
-# Input box
+# Input field
 with st.form(key="chat_form", clear_on_submit=True):
     user_input = st.text_input("Type your question here...", key="user_input")
     submitted = st.form_submit_button("Send")
@@ -77,11 +78,19 @@ if submitted and user_input:
     except Exception as e:
         st.error(f"⚠️ Error: {e}")
 
-# Chat history display
+# Display chat history
 chat_container = st.container()
 with chat_container:
     for speaker, message in st.session_state.chat_log:
         if speaker == "👤":
-            st.markdown(f"<div style='background-color:#dff0d8;padding:10px;border-radius:10px;margin:5px 0'><b>{speaker}</b>: {message}</div>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style='background-color:#333;padding:10px;border-radius:10px;margin:5px 0;color:white'>
+                <b>{speaker}</b>: {message}
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.markdown(f"<div style='background-color:#f0f0f0;padding:10px;border-radius:10px;margin:5px 0'><b>{speaker}</b>: {message}</div>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style='background-color:#111;padding:10px;border-radius:10px;margin:5px 0;color:white'>
+                <b>{speaker}</b>: {message}
+            </div>
+            """, unsafe_allow_html=True)
