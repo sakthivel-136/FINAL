@@ -2,11 +2,11 @@ import streamlit as st
 import pandas as pd
 import pickle
 import os
-import uuid
+import base64
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from fpdf import FPDF
-import time
+from gtts import gTTS
+import uuid
 
 # Constants
 VECTOR_FILE = "vectorized.pkl"
@@ -15,61 +15,49 @@ THRESHOLD = 0.6
 
 st.set_page_config(page_title="🎓 KCET FAQ Chatbot", layout="centered")
 
-# --- Theme Toggle ---
-theme = st.sidebar.radio("🌓 Select Theme", ["Dark", "Light"])
-if theme == "Light":
-    bg_color = "#f9f9f9"
-    text_color = "#000000"
-    user_bg = "#e1e1e1"
-    bot_bg = "#d1d1f1"
-else:
-    bg_color = "#0f0f0f"
-    text_color = "#ffffff"
-    user_bg = "#444"
-    bot_bg = "#1c1c1c"
-
 # --- Custom CSS ---
-st.markdown(f"""
+st.markdown("""
     <style>
-    body {{
-        background-color: {bg_color};
-        color: {text_color};
+    body {
+        background-color: #0f0f0f;
+        color: white;
         font-family: 'Segoe UI', sans-serif;
-    }}
-    .chat-container {{
+    }
+    .chat-container {
         padding: 4px 12px;
         margin-bottom: 10px;
-    }}
-    .user-msg, .bot-msg {{
+    }
+    .user-msg, .bot-msg {
         padding: 10px 16px;
         border-radius: 20px;
         margin: 6px 0;
         max-width: 85%;
         word-wrap: break-word;
-    }}
-    .user-msg {{
-        background-color: {user_bg};
-        color: {text_color};
+    }
+    .user-msg {
+        background-color: #444;
+        color: white;
         margin-left: auto;
         text-align: right;
-    }}
-    .bot-msg {{
-        background-color: {bot_bg};
-        color: {text_color};
+    }
+    .bot-msg {
+        background-color: #1c1c1c;
+        color: white;
         margin-right: auto;
         text-align: left;
-    }}
-    .stButton>button {{
+    }
+    .stButton>button {
         background-color: #555 !important;
         color: white !important;
         border-radius: 8px;
         padding: 10px 16px;
-    }}
-    .stButton>button:hover {{
+        margin-top: 4px;
+    }
+    .stButton>button:hover {
         background-color: #777 !important;
-    }}
-    .banner {{
-        background-color: #222;
+    }
+    .banner {
+        background-color: #111;
         color: #FFD700;
         font-weight: bold;
         padding: 8px;
@@ -77,25 +65,26 @@ st.markdown(f"""
         white-space: nowrap;
         overflow: hidden;
         animation: scroll-left 20s linear infinite;
-    }}
-    @keyframes scroll-left {{
-        0% {{ transform: translateX(100%); }}
-        100% {{ transform: translateX(-100%); }}
-    }}
+    }
+    @keyframes scroll-left {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # --- Banner ---
 st.markdown("""
     <div class='banner'>
-        💼 100% Placement | 👩‍🏫 Top Faculty | 🧠 Hackathons | 📚 Library Access | 🛏 Hostel Facility | 🌐 Industry Collaboration
+        💼 100% Placement | 👩‍🏫 Experienced Faculty | 🧪 Research Labs | 🧠 Hackathons | 🤝 Industry Collaboration | 🌐 Autonomous Institution
     </div>
 """, unsafe_allow_html=True)
 
 # --- Title ---
-st.markdown("<h1 style='text-align: center;'>🤖 KCET Bot Assistant</h1><hr>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>🤖 KCET Bot Assistant</h1>", unsafe_allow_html=True)
+st.markdown("<hr style='border:1px solid #333;'>", unsafe_allow_html=True)
 
-# --- Load Data ---
+# --- Load Vectorizer & Data ---
 @st.cache_data
 def load_vector_data():
     if os.path.exists(VECTOR_FILE):
@@ -114,7 +103,7 @@ vectorizer, vectors, df = load_vector_data()
 
 # --- Session State ---
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything.")]
+    st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
 
 # --- Display Chat ---
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
@@ -123,38 +112,30 @@ for speaker, msg in st.session_state.chat_log:
     st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Input Form ---
+# --- Input Area at Bottom ---
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
-    user_input = col1.text_input("Type your message here...", label_visibility="collapsed")
+    user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
     submitted = col2.form_submit_button("➤")
 
-# --- Clear Chat ---
+# --- Clear Chat Button ---
 if st.button("🧹 Clear Chat"):
-    st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything.")]
+    st.session_state.chat_log = []
     st.rerun()
 
-# --- Download Chat as PDF ---
-if st.download_button("📥 Download Chat as PDF", data=None, file_name="kcet_chat.pdf", disabled=True, key="dummy"):
-    pass  # Placeholder button
-if st.session_state.chat_log:
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    for speaker, msg in st.session_state.chat_log:
-        pdf.multi_cell(0, 10, f"{speaker}: {msg}")
-    pdf_file = f"chat_{uuid.uuid4().hex}.pdf"
-    pdf.output(pdf_file)
-    with open(pdf_file, "rb") as f:
-        st.download_button("📥 Download Chat as PDF", f, file_name="kcet_chat.pdf", mime="application/pdf")
-    os.remove(pdf_file)
-
-# --- Handle Input ---
+# --- Handle Input Safely ---
 if submitted and user_input.strip():
-    user_msg = user_input.strip()
+    st.session_state.pending_input = user_input.strip()
+
+# --- Process After UI Renders ---
+if "pending_input" in st.session_state:
+    user_msg = st.session_state.pending_input
+    del st.session_state.pending_input
+
+    # Add user question
     st.session_state.chat_log.append(("👤", user_msg))
 
-    # Vector Matching
+    # Vector search
     query_vec = vectorizer.transform([user_msg.lower()])
     similarity = cosine_similarity(query_vec, vectors)
     max_sim = similarity.max()
@@ -163,11 +144,31 @@ if submitted and user_input.strip():
     if max_sim >= THRESHOLD:
         response = df.iloc[idx]['Answer']
     else:
-        response = "❌ Sorry, I couldn't understand that. Please try rephrasing."
+        response = "❌ Sorry, I couldn't understand that. Please rephrase your question."
 
-    # Typing animation simulation
-    with st.spinner("🤖 Typing..."):
-        time.sleep(min(1.2, len(response) * 0.02))
-
+    # Add bot response
     st.session_state.chat_log.append(("🤖", response))
+
+    # --- TTS Play with invisible HTML audio ---
+    try:
+        tts = gTTS(text=response, lang='en')
+        audio_file = f"tts_{uuid.uuid4().hex}.mp3"
+        tts.save(audio_file)
+
+        with open(audio_file, "rb") as f:
+            audio_bytes = f.read()
+            b64 = base64.b64encode(audio_bytes).decode()
+            audio_html = f"""
+                <html><body>
+                <audio autoplay="true">
+                    <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+                </audio>
+                </body></html>
+            """
+            st.components.v1.html(audio_html, height=0)
+        os.remove(audio_file)
+    except Exception as e:
+        st.error(f"TTS error: {e}")
+
+    # Force rerun to show new chat message
     st.rerun()
