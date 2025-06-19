@@ -2,28 +2,25 @@ import streamlit as st
 import pandas as pd
 import pickle
 import os
+import time
+import uuid
+from gtts import gTTS
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from gtts import gTTS
-from io import BytesIO
-from streamlit_mic_recorder import mic_recorder
 
 # Constants
 VECTOR_FILE = "vectorized (3).pkl"
-CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
 
-# Page setup
 st.set_page_config(page_title="🎓 KCET FAQ Chatbot", layout="centered")
 
-# Banner + CSS
+# --- Custom CSS & JS ---
 st.markdown("""
     <style>
     .marquee {
         width: 100%;
         overflow: hidden;
         white-space: nowrap;
-        box-sizing: border-box;
         animation: marquee 15s linear infinite;
         color: #ffcc00;
         font-weight: bold;
@@ -39,6 +36,9 @@ st.markdown("""
     .chat-container {
         max-width: 700px;
         margin: 0 auto;
+        height: 500px;
+        overflow-y: auto;
+        padding-bottom: 10px;
     }
     .user-msg, .bot-msg {
         padding: 12px 16px;
@@ -63,92 +63,86 @@ st.markdown("""
         background-color: #444 !important;
         color: white !important;
         border-radius: 8px;
-        border: none;
         padding: 10px 16px;
         font-size: 18px;
-        margin-top: 10px;
+        border: none;
     }
     .stButton>button:hover {
         background-color: #666 !important;
     }
     </style>
+    <script>
+    function scrollToBottom() {
+        var container = window.parent.document.querySelector('.chat-container');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+    window.addEventListener('load', scrollToBottom);
+    </script>
 """, unsafe_allow_html=True)
+
 st.markdown("<div class='marquee'>💼 100% Placement Assistance | 👩‍🏫 Well-trained Faculty | 🎓 Industry-ready Curriculum | 🧠 Hackathons & Internships</div>", unsafe_allow_html=True)
+
 st.markdown("<h1 style='text-align:center;'>🤖 KCET Bot Assistant</h1><hr>", unsafe_allow_html=True)
 
-# Load vectorizer & data
+# Load vector data
 @st.cache_data
-def load_or_vectorize():
-    if os.path.exists(VECTOR_FILE):
-        with open(VECTOR_FILE, "rb") as f:
-            vectorizer, vectors, df = pickle.load(f)
-    else:
-        if not os.path.exists(CSV_FILE):
-            st.error("❌ Data file 'kcet.csv' not found!")
-            st.stop()
-        df = pd.read_csv(CSV_FILE)
-        df['Question'] = df['Question'].str.strip().str.lower()
-        vectorizer = TfidfVectorizer()
-        vectors = vectorizer.fit_transform(df['Question'])
-        with open(VECTOR_FILE, "wb") as f:
-            pickle.dump((vectorizer, vectors, df), f)
+def load_pickle():
+    if not os.path.exists(VECTOR_FILE):
+        st.error("❌ vectorized (3).pkl not found.")
+        st.stop()
+    with open(VECTOR_FILE, "rb") as f:
+        vectorizer, vectors, df = pickle.load(f)
     return vectorizer, vectors, df
 
-vectorizer, vectors, df = load_or_vectorize()
+vectorizer, vectors, df = load_pickle()
 
 # Session state
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
+    st.session_state.chat_log = [("🤖", "👋 Vanakkam! Ask me anything about KCET.")]
 if "chat_input" not in st.session_state:
     st.session_state.chat_input = ""
+if "clear_input" not in st.session_state:
+    st.session_state.clear_input = False
+if "language" not in st.session_state:
+    st.session_state.language = "English"
 
-# TTS
-def speak(text):
-    tts = gTTS(text)
-    mp3_fp = BytesIO()
-    tts.write_to_fp(mp3_fp)
-    st.audio(mp3_fp.getvalue(), format="audio/mp3")
+# Clear previous input if flagged
+if st.session_state.clear_input:
+    st.session_state.chat_input = ""
+    st.session_state.clear_input = False
 
-# Display messages
+# Language selector
+st.session_state.language = st.radio("🗣️ Choose your answer language:", ["English", "Tamil"], horizontal=True)
+
+# Chat history
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for speaker, msg in st.session_state.chat_log:
     css_class = "user-msg" if speaker == "👤" else "bot-msg"
     st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# Auto-scroll
-st.markdown("""
-    <script>
-        var body = window.parent.document.querySelector(".main");
-        body.scrollTo(0, body.scrollHeight);
-    </script>
+# Text input + submit
+st.markdown(f"""
+<form onsubmit="document.getElementById('send-button').click(); return false;">
+<input type="text" name="message" placeholder="Type your question here..." 
+       id="chat-box" style="width: 90%; padding: 10px; border-radius: 8px; 
+       background: #1e1e1e; color: white; border: 1px solid #444;" 
+       onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.form.submit(); }" 
+       value="{st.session_state.chat_input}">
+<button id="send-button" hidden></button>
+</form>
 """, unsafe_allow_html=True)
 
-# 🎤 Mic recorder input
-voice_text = mic_recorder(
-    start_prompt="🎤 Start Recording",
-    stop_prompt="⏹️ Stop",
-    just_once=True,
-    key="mic"
-)
+send_clicked = st.button("➤", key="send_button")
 
-if voice_text and isinstance(voice_text, dict):
-    transcript = voice_text.get("text", "").strip()
-    if transcript:
-        st.success(f"🔊 You said: {transcript}")
-        st.session_state.chat_input = transcript
-
-# Chat input + form
-with st.form("chat_form", clear_on_submit=False):
-    col1, col2 = st.columns([8, 1])
-    with col1:
-        user_input = st.text_input("Type your question here...", label_visibility="collapsed", key="chat_input")
-    with col2:
-        submitted = st.form_submit_button("➤")
-
-# On send
-if submitted and user_input.strip():
+# Chat logic
+user_input = st.session_state.chat_input
+if send_clicked and user_input.strip():
     query = user_input.strip().lower()
+    st.session_state.chat_log.append(("👤", user_input))
+
     try:
         query_vector = vectorizer.transform([query])
         similarity = cosine_similarity(query_vector, vectors)
@@ -160,14 +154,40 @@ if submitted and user_input.strip():
         else:
             answer = "❌ Sorry, I couldn't understand that. Please try rephrasing."
 
-        st.session_state.chat_log.append(("👤", user_input))
-        st.session_state.chat_log.append(("🤖", answer))
-        speak(answer)
-        st.session_state.chat_input = ""
+        # If Tamil selected, translate
+        if st.session_state.language == "Tamil":
+            from deep_translator import GoogleTranslator
+            translated = GoogleTranslator(source='en', target='ta').translate(answer)
+        else:
+            translated = answer
+
+        # Typing effect
+        typing_placeholder = st.empty()
+        typed_text = ""
+        for char in translated:
+            typed_text += char
+            typing_placeholder.markdown(f"<div class='bot-msg'><b>🤖</b>: {typed_text}</div>", unsafe_allow_html=True)
+            time.sleep(0.015)
+
+        st.session_state.chat_log.append(("🤖", translated))
+        st.session_state.clear_input = True
+
+        # gTTS audio
+        audio_file = f"tts_{uuid.uuid4().hex}.mp3"
+        tts = gTTS(text=translated, lang='ta' if st.session_state.language == "Tamil" else 'en')
+        tts.save(audio_file)
+
+        # Autoplay
+        st.markdown(f"""
+        <audio autoplay="true">
+          <source src="{audio_file}" type="audio/mpeg">
+        </audio>
+        """, unsafe_allow_html=True)
+
     except Exception as e:
         st.error(f"⚠️ Error: {e}")
 
 # Clear chat
-if st.button("🪑 Clear Chat"):
-    st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
+if st.button("🧹 Clear Chat"):
+    st.session_state.chat_log = [("🤖", "👋 Vanakkam! Ask me anything about KCET.")]
     st.session_state.chat_input = ""
