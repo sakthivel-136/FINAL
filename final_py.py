@@ -14,8 +14,8 @@ from email.message import EmailMessage
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
-SENDER_EMAIL = "your_email@gmail.com"  # Replace with your email
-SENDER_PASSWORD = "your_app_password"  # Replace with your app password
+SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"  # Replace with your email
+SENDER_PASSWORD = "qwertyuiop123-"  # Replace with your app password
 
 # --- Page Setup ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
