@@ -4,6 +4,9 @@ import pickle
 import os
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from gtts import gTTS
+from io import BytesIO
+import speech_recognition as sr
 
 # Constants
 VECTOR_FILE = "vectorized (3).pkl"
@@ -13,7 +16,7 @@ THRESHOLD = 0.6
 # Page Config
 st.set_page_config(page_title="🎓 KCET FAQ Chatbot", layout="centered")
 
-# --- Custom CSS for modern UI ---
+# Custom CSS & Banner
 st.markdown("""
     <style>
     body {
@@ -61,18 +64,6 @@ st.markdown("""
         margin-right: auto;
         text-align: left;
     }
-    .input-box input {
-        background-color: #1e1e1e;
-        color: white;
-        border: 1px solid #444;
-        border-radius: 8px;
-        padding: 12px;
-        width: 100%;
-    }
-    .input-box input:focus {
-        border-color: #555;
-        outline: none;
-    }
     .stButton>button {
         background-color: #444 !important;
         color: white !important;
@@ -88,13 +79,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Marquee banner
+# Banner
 st.markdown("<div class='marquee'>💼 100% Placement Assistance | 👩‍🏫 Well-trained Faculty | 🎓 Industry-ready Curriculum | 🧠 Hackathons & Internships</div>", unsafe_allow_html=True)
-
-# App Title
 st.markdown("<h1 style='text-align:center;'>🤖 KCET Bot Assistant</h1><hr>", unsafe_allow_html=True)
 
-# Load vectorizer and data
+# Load or generate vectorizer
 @st.cache_data
 def load_or_vectorize():
     if os.path.exists(VECTOR_FILE):
@@ -114,31 +103,65 @@ def load_or_vectorize():
 
 vectorizer, vectors, df = load_or_vectorize()
 
-# Initialize session state
+# Session states
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
 if "chat_input" not in st.session_state:
     st.session_state.chat_input = ""
 
-# Display chat history
+# TTS function
+def speak(text):
+    tts = gTTS(text)
+    mp3_fp = BytesIO()
+    tts.write_to_fp(mp3_fp)
+    st.audio(mp3_fp.getvalue(), format="audio/mp3")
+
+# Speech Recognition
+def record_voice():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.info("🎤 Listening... Speak now.")
+        audio = recognizer.listen(source)
+        try:
+            text = recognizer.recognize_google(audio)
+            st.success(f"✅ You said: {text}")
+            return text
+        except sr.UnknownValueError:
+            st.warning("❌ Could not understand audio.")
+        except sr.RequestError:
+            st.error("❌ Could not request results.")
+    return ""
+
+# Chat history
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for speaker, msg in st.session_state.chat_log:
     css_class = "user-msg" if speaker == "👤" else "bot-msg"
     st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# Horizontal separator
-st.markdown("<hr>", unsafe_allow_html=True)
+# Auto-scroll to bottom
+st.markdown("""
+    <script>
+        var body = window.parent.document.querySelector(".main");
+        body.scrollTo(0, body.scrollHeight);
+    </script>
+""", unsafe_allow_html=True)
 
-# Chat input layout (bottom)
-col1, col2 = st.columns([8, 1])
-with col1:
-    user_input = st.text_input("Type your question here...", label_visibility="collapsed", key="chat_input")
-with col2:
-    send_clicked = st.button("➤", key="send_button")
+# Voice input button
+if st.button("🎙️ Speak"):
+    spoken = record_voice()
+    if spoken:
+        st.session_state.chat_input = spoken
 
-# Chat logic
-if send_clicked and user_input.strip():
+# Input with form (Enter-to-send + button)
+with st.form("chat_form", clear_on_submit=False):
+    col1, col2 = st.columns([8, 1])
+    with col1:
+        user_input = st.text_input("Type your question here...", label_visibility="collapsed", key="chat_input")
+    with col2:
+        submitted = st.form_submit_button("➤")
+
+if submitted and user_input.strip():
     query = user_input.strip().lower()
     try:
         query_vector = vectorizer.transform([query])
@@ -153,11 +176,12 @@ if send_clicked and user_input.strip():
 
         st.session_state.chat_log.append(("👤", user_input))
         st.session_state.chat_log.append(("🤖", answer))
-        st.session_state.chat_input = ""  # Clear the text input
+        speak(answer)  # TTS playback
+        st.session_state.chat_input = ""  # Clear input
     except Exception as e:
         st.error(f"⚠️ Error: {e}")
 
-# Clear button
+# Clear chat
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
     st.session_state.chat_input = ""
