@@ -5,6 +5,8 @@ import os
 import uuid
 import time
 import base64
+import smtplib
+from email.message import EmailMessage
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from fpdf import FPDF
@@ -14,6 +16,9 @@ from gtts import gTTS
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
+# ✅ Set your sender email and app password
+SENDER_EMAIL = ("kamarajengg.edu.in@Gmail.com ")
+SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
 
 # --- Page Setup ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
@@ -101,7 +106,7 @@ with st.form("chat_form", clear_on_submit=True):
     submitted = col2.form_submit_button("\u27a4")
 
 # --- Clear Button ---
-if st.button("🧹 Clear Chat"):
+if st.button("🩹 Clear Chat"):
     st.session_state.chat_log = [("🤖", "Hello! I'm your KCET Assistant. Ask me anything.")]
     st.rerun()
 
@@ -152,39 +157,52 @@ if submitted and user_input.strip():
 
     st.rerun()
 
-# --- PDF Export Button ---
+# --- PDF & Email Export ---
 st.markdown("""
 <div class="toggle-box">
     <b>📄 Export Chat</b><br>
 """, unsafe_allow_html=True)
 
-if st.button("Download PDF"):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
-    pdf.set_font("DejaVu", size=12)
+email = st.text_input("Enter Email to Send PDF", placeholder="you@example.com")
+if st.button("Send PDF to Email"):
+    if not email or "@" not in email:
+        st.error("Please enter a valid email address.")
+    else:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
+        pdf.set_font("DejaVu", size=12)
 
-    def clean_text(text):
-        return ''.join(c if ord(c) < 128 else '?' for c in text)
+        def clean_text(text):
+            return ''.join(c if ord(c) < 128 else '?' for c in text)
 
-    for speaker, msg in st.session_state.chat_log:
-        safe_msg = clean_text(f"{speaker}: {msg}")
-        pdf.multi_cell(0, 10, safe_msg)
+        for speaker, msg in st.session_state.chat_log:
+            safe_msg = clean_text(f"{speaker}: {msg}")
+            pdf.multi_cell(0, 10, safe_msg)
 
-    filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
-    try:
-        pdf.output(filename)
-        with open(filename, "rb") as f:
-            btn = st.download_button(
-                label="Click to Download",
-                data=f,
-                file_name="kcet_chat.pdf",
-                mime="application/pdf"
-            )
-    except Exception as e:
-        st.error(f"❌ Failed to generate PDF: {e}")
-    finally:
-        if os.path.exists(filename):
-            os.remove(filename)
+        filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
+        try:
+            pdf.output(filename)
+
+            msg = EmailMessage()
+            msg['Subject'] = "KCET Chat Log"
+            msg['From'] = SENDER_EMAIL
+            msg['To'] = email
+            msg.set_content("Here is your chat log with the KCET Assistant.")
+
+            with open(filename, "rb") as f:
+                msg.add_attachment(f.read(), maintype='application', subtype='pdf', filename="kcet_chat.pdf")
+
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
+                smtp.send_message(msg)
+
+            st.success("✅ Email sent successfully!")
+
+        except Exception as e:
+            st.error(f"Email error: {e}")
+        finally:
+            if os.path.exists(filename):
+                os.remove(filename)
 
 st.markdown("</div>", unsafe_allow_html=True)
