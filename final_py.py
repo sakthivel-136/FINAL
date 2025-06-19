@@ -25,7 +25,7 @@ st.set_page_config(page_title="🎓 KCET FAQ Chatbot", layout="centered")
 st.markdown("""
     <style>
     .stApp {
-        background-image: url("https://images.unsplash.com/photo-1600585154340-be6161a56a0c");  /* example image URL */
+        background-image: url("https://www.google.com/imgres?q=kamaraj%20college%20of%20engineering%20and%20technology&imgurl=https%3A%2F%2Flookaside.fbsbx.com%2Flookaside%2Fcrawler%2Fmedia%2F%3Fmedia_id%3D100068650684309&imgrefurl=https%3A%2F%2Fwww.facebook.com%2Fp%2FKamaraj-College-of-Engineering-TechnologyKCET-100068650684309%2F&docid=3-MnLvk9msSaNM&tbnid=-HqAoJA6ehCT8M&vet=12ahUKEwiF27-qzf2NAxVBTmwGHTU3H6EQM3oECFQQAA..i&w=1500&h=1000&hcb=2&ved=2ahUKEwiF27-qzf2NAxVBTmwGHTU3H6EQM3oECFQQAA");  /* example image URL */
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
