@@ -96,7 +96,7 @@ st.markdown("<div class='marquee'>💼 100% Placement Assistance | 👩‍🏫 W
 # App Title
 st.markdown("<h1 style='text-align:center;'>🤖 KCET Bot Assistant</h1><hr>", unsafe_allow_html=True)
 
-# Load preprocessed data
+# Load vectorizer + data from pkl
 @st.cache_data
 def load_pickle():
     if not os.path.exists(VECTOR_FILE):
@@ -108,7 +108,7 @@ def load_pickle():
 
 vectorizer, vectors, df = load_pickle()
 
-# Session state init
+# Init session state
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
 if "chat_input" not in st.session_state:
@@ -116,30 +116,31 @@ if "chat_input" not in st.session_state:
 if "clear_input" not in st.session_state:
     st.session_state.clear_input = False
 
-# Clear old audio files
+# Cleanup old TTS files
 for file in glob.glob("tts_output_*.mp3"):
     os.remove(file)
 
-# Clear input if flagged
+# Clear input if needed
 if st.session_state.clear_input:
     st.session_state.chat_input = ""
     st.session_state.clear_input = False
 
-# Chat Display
+# Chat history
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for speaker, msg in st.session_state.chat_log:
     css_class = "user-msg" if speaker == "👤" else "bot-msg"
     st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# Chat Input UI
+# Input field and enter-to-send support
+escaped_input = st.session_state.chat_input.replace('"', "&quot;")  # escape quotes
 st.markdown(f"""
 <form onsubmit="document.getElementById('send-button').click(); return false;">
 <input type="text" name="message" placeholder="Type your question here..." 
        id="chat-box" style="width: 90%; padding: 10px; border-radius: 8px; 
        background: #1e1e1e; color: white; border: 1px solid #444;" 
-       onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.form.submit(); }" 
-       value="{st.session_state.chat_input}">
+       onkeydown="if(event.key==='Enter'){{ event.preventDefault(); this.form.submit(); }}" 
+       value="{escaped_input}">
 <button id="send-button" hidden></button>
 </form>
 """, unsafe_allow_html=True)
@@ -170,15 +171,16 @@ if send_clicked and user_input.strip():
             typing_placeholder.markdown(f"<div class='bot-msg'><b>🤖</b>: {typed_text}</div>", unsafe_allow_html=True)
             time.sleep(0.015)
 
+        # Save final answer and prepare audio
         st.session_state.chat_log.append(("🤖", answer))
         st.session_state.clear_input = True
 
-        # Generate and autoplay TTS
+        # Generate audio
         audio_filename = f"tts_output_{uuid.uuid4().hex}.mp3"
         tts = gTTS(text=answer, lang='en')
         tts.save(audio_filename)
 
-        # Autoplay
+        # Autoplay audio
         st.markdown(f"""
         <audio autoplay="true">
           <source src="{audio_filename}" type="audio/mpeg">
@@ -188,7 +190,7 @@ if send_clicked and user_input.strip():
     except Exception as e:
         st.error(f"⚠️ Error: {e}")
 
-# Clear Chat Button
+# Clear chat button
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
     st.session_state.chat_input = ""
