@@ -13,7 +13,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 VECTOR_FILE = "vectorized (3).pkl"
 THRESHOLD = 0.6
 
-# Page Config
 st.set_page_config(page_title="🎓 KCET FAQ Chatbot", layout="centered")
 
 # --- Custom CSS ---
@@ -82,7 +81,7 @@ st.markdown("""
     }
     .input-area {
         max-width: 720px;
-        margin: 20px auto 0;
+        margin: 10px auto 0;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -93,7 +92,7 @@ st.markdown("<div class='marquee'>💼 100% Placement | 👩‍🏫 Top Faculty 
 # --- App Title ---
 st.markdown("<h1 style='text-align:center;'>🤖 KCET Bot Assistant</h1><hr>", unsafe_allow_html=True)
 
-# --- Load Data ---
+# --- Load Pickle File ---
 @st.cache_data
 def load_pickle():
     if not os.path.exists(VECTOR_FILE):
@@ -105,20 +104,9 @@ def load_pickle():
 
 vectorizer, vectors, df = load_pickle()
 
-# --- Session State ---
+# --- Session State Setup ---
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
-
-# --- Clean old audio files ---
-for file in glob.glob("tts_output_*.mp3"):
-    os.remove(file)
-
-# --- Chat Display ---
-st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
-for speaker, msg in st.session_state.chat_log:
-    css_class = "user-msg" if speaker == "👤" else "bot-msg"
-    st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
-st.markdown("</div>", unsafe_allow_html=True)
 
 # --- Input Area ---
 st.markdown("<div class='input-area'>", unsafe_allow_html=True)
@@ -130,10 +118,15 @@ with st.form("chat_form", clear_on_submit=True):
         send_clicked = st.form_submit_button("➤")
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Chatbot Logic ---
+# --- Clean old audio files ---
+for file in glob.glob("tts_output_*.mp3"):
+    os.remove(file)
+
+# --- Chat Logic ---
 if send_clicked and user_input.strip():
     query = user_input.strip().lower()
     st.session_state.chat_log.append(("👤", user_input))
+
     try:
         query_vector = vectorizer.transform([query])
         similarity = cosine_similarity(query_vector, vectors)
@@ -145,7 +138,7 @@ if send_clicked and user_input.strip():
         else:
             answer = "❌ Sorry, I couldn't understand that. Please try rephrasing."
 
-        # Typing effect
+        # Typing animation
         typing_placeholder = st.empty()
         typed_text = ""
         for char in answer:
@@ -153,10 +146,9 @@ if send_clicked and user_input.strip():
             typing_placeholder.markdown(f"<div class='bot-msg'><b>🤖</b>: {typed_text}</div>", unsafe_allow_html=True)
             time.sleep(0.015)
 
-        # Save bot message
         st.session_state.chat_log.append(("🤖", answer))
 
-        # TTS audio playback
+        # Audio playback
         audio_file = f"tts_output_{uuid.uuid4().hex}.mp3"
         gTTS(text=answer).save(audio_file)
         st.markdown(f"""
@@ -167,6 +159,13 @@ if send_clicked and user_input.strip():
 
     except Exception as e:
         st.error(f"⚠️ Error: {e}")
+
+# --- Chat Display (AFTER chat update) ---
+st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
+for speaker, msg in st.session_state.chat_log:
+    css_class = "user-msg" if speaker == "👤" else "bot-msg"
+    st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
 # --- Clear Chat ---
 if st.button("🧹 Clear Chat"):
