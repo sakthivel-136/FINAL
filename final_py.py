@@ -126,7 +126,7 @@ def load_vector_data():
 vectorizer, vectors, df = load_vector_data()
 
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("🧠", f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Hello! I'm your KCET Assistant. Ask me anything.")]
+    st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
 
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
@@ -134,8 +134,7 @@ with st.form("chat_form", clear_on_submit=True):
     submitted = col2.form_submit_button("\u27a4")
 
 if submitted and user_input.strip():
-    user_msg = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {user_input.strip()}"
-    st.session_state.chat_log.append(("👤", user_msg))
+    st.session_state.chat_log.append(("\ud83d\udc64", user_input.strip()))
 
     vec = vectorizer.transform([user_input.lower()])
     similarity = cosine_similarity(vec, vectors)
@@ -143,7 +142,6 @@ if submitted and user_input.strip():
     idx = similarity.argmax()
 
     full_response = df.iloc[idx]['Answer'] if max_sim >= THRESHOLD else "❌ Sorry, I couldn't understand that. Please rephrase."
-    bot_msg = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {full_response}"
 
     try:
         tts = gTTS(text=full_response, lang='en')
@@ -158,30 +156,32 @@ if submitted and user_input.strip():
                     <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
                 </audio>
             """
-            st.markdown(audio_html, unsafe_allow_html=True)
+            st.session_state["last_audio"] = audio_html
         os.remove(audio_file)
     except Exception as e:
-        st.error(f"TTS error: {e}")
+        st.session_state["last_audio"] = f"<p style='color:red;'>TTS error: {e}</p>"
 
-    st.session_state.chat_log.append(("🤖", bot_msg))
+    st.session_state.chat_log.append(("🤖", full_response))
     st.rerun()
 
 st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg in st.session_state.chat_log:
-    align = 'right' if speaker == '👤' else 'left'
-    bg = '#444' if speaker == '👤' else '#222'
-    avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker == "👤" else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
+    align = 'right' if speaker == '\ud83d\udc64' else 'left'
+    bg = '#444' if speaker == '\ud83d\udc64' else '#222'
+    avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker == "\ud83d\udc64" else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
     st.markdown(f"""
     <div class='message' style='background-color:{bg}; text-align:{align};'>
         <img src='{avatar}' class='avatar'/>
         <div><b>{speaker}</b>: {msg}</div>
     </div>""", unsafe_allow_html=True)
 
-if st.button("🧹 Clear Chat"):
-    st.session_state.chat_log = [("🧠", f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Hello! I'm your KCET Assistant. Ask me anything.")]
+if "last_audio" in st.session_state:
+    st.markdown(st.session_state["last_audio"], unsafe_allow_html=True)
+
+if st.button("\ud83e\ude79 Clear Chat"):
+    st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
     st.rerun()
 
-# --- Floating Button to Show Email PDF Form ---
 show_email = st.session_state.get("show_email", False)
 if st.button("✉️", key="show_email_btn"):
     st.session_state["show_email"] = not show_email
@@ -206,7 +206,8 @@ if st.session_state.get("show_email"):
                         pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
                         pdf.set_font("DejaVu", size=12)
                         for speaker, msg in st.session_state.chat_log:
-                            pdf.multi_cell(0, 10, f"{speaker}: {msg}")
+                            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            pdf.multi_cell(0, 10, f"[{timestamp}] {speaker}: {msg}")
                         attachment_path = f"{filename}.pdf"
                         pdf.output(attachment_path)
 
@@ -214,13 +215,15 @@ if st.session_state.get("show_email"):
                         attachment_path = f"{filename}.txt"
                         with open(attachment_path, "w", encoding="utf-8") as f:
                             for speaker, msg in st.session_state.chat_log:
-                                f.write(f"{speaker}: {msg}\n")
+                                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                f.write(f"[{timestamp}] {speaker}: {msg}\n")
 
                     elif file_type == "DOC":
                         attachment_path = f"{filename}.doc"
                         with open(attachment_path, "w", encoding="utf-8") as f:
                             for speaker, msg in st.session_state.chat_log:
-                                f.write(f"{speaker}: {msg}\n")
+                                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                f.write(f"[{timestamp}] {speaker}: {msg}\n")
 
                     msg = EmailMessage()
                     msg['Subject'] = "KCET Chat Log"
