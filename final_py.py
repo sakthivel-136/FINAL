@@ -6,24 +6,19 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from gtts import gTTS
 from io import BytesIO
-import speech_recognition as sr
+from streamlit_mic_recorder import mic_recorder
 
 # Constants
 VECTOR_FILE = "vectorized (3).pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
 
-# Page Config
+# Page config
 st.set_page_config(page_title="🎓 KCET FAQ Chatbot", layout="centered")
 
-# Custom CSS & Banner
+# Banner + CSS
 st.markdown("""
     <style>
-    body {
-        background-color: #0f0f0f;
-        color: white;
-        font-family: 'Segoe UI', sans-serif;
-    }
     .marquee {
         width: 100%;
         overflow: hidden;
@@ -78,12 +73,10 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
-
-# Banner
 st.markdown("<div class='marquee'>💼 100% Placement Assistance | 👩‍🏫 Well-trained Faculty | 🎓 Industry-ready Curriculum | 🧠 Hackathons & Internships</div>", unsafe_allow_html=True)
 st.markdown("<h1 style='text-align:center;'>🤖 KCET Bot Assistant</h1><hr>", unsafe_allow_html=True)
 
-# Load or generate vectorizer
+# Load vectorizer and data
 @st.cache_data
 def load_or_vectorize():
     if os.path.exists(VECTOR_FILE):
@@ -103,7 +96,7 @@ def load_or_vectorize():
 
 vectorizer, vectors, df = load_or_vectorize()
 
-# Session states
+# Session state
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
 if "chat_input" not in st.session_state:
@@ -116,23 +109,7 @@ def speak(text):
     tts.write_to_fp(mp3_fp)
     st.audio(mp3_fp.getvalue(), format="audio/mp3")
 
-# Speech Recognition
-def record_voice():
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("🎤 Listening... Speak now.")
-        audio = recognizer.listen(source)
-        try:
-            text = recognizer.recognize_google(audio)
-            st.success(f"✅ You said: {text}")
-            return text
-        except sr.UnknownValueError:
-            st.warning("❌ Could not understand audio.")
-        except sr.RequestError:
-            st.error("❌ Could not request results.")
-    return ""
-
-# Chat history
+# Chat display
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for speaker, msg in st.session_state.chat_log:
     css_class = "user-msg" if speaker == "👤" else "bot-msg"
@@ -147,13 +124,13 @@ st.markdown("""
     </script>
 """, unsafe_allow_html=True)
 
-# Voice input button
-if st.button("🎙️ Speak"):
-    spoken = record_voice()
-    if spoken:
-        st.session_state.chat_input = spoken
+# 🎙️ Voice Input with streamlit-mic-recorder
+voice_text = mic_recorder(start_prompt="🎙️ Start Recording", stop_prompt="⏹️ Stop", just_once=True, key='recorder')
 
-# Input with form (Enter-to-send + button)
+if voice_text and voice_text.strip():
+    st.session_state.chat_input = voice_text
+
+# Chat input (bottom form)
 with st.form("chat_form", clear_on_submit=False):
     col1, col2 = st.columns([8, 1])
     with col1:
@@ -161,6 +138,7 @@ with st.form("chat_form", clear_on_submit=False):
     with col2:
         submitted = st.form_submit_button("➤")
 
+# Message handling
 if submitted and user_input.strip():
     query = user_input.strip().lower()
     try:
@@ -176,12 +154,12 @@ if submitted and user_input.strip():
 
         st.session_state.chat_log.append(("👤", user_input))
         st.session_state.chat_log.append(("🤖", answer))
-        speak(answer)  # TTS playback
-        st.session_state.chat_input = ""  # Clear input
+        speak(answer)
+        st.session_state.chat_input = ""
     except Exception as e:
         st.error(f"⚠️ Error: {e}")
 
-# Clear chat
+# Clear button
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
     st.session_state.chat_input = ""
