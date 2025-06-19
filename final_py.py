@@ -24,11 +24,11 @@ st.markdown("""
         font-family: 'Segoe UI', sans-serif;
     }
     .chat-container {
-        padding: 2px 10px;
-        margin-bottom: 6px;
+        padding: 4px 12px;
+        margin-bottom: 10px;
     }
     .user-msg, .bot-msg {
-        padding: 10px 14px;
+        padding: 10px 16px;
         border-radius: 20px;
         margin: 6px 0;
         max-width: 85%;
@@ -51,7 +51,7 @@ st.markdown("""
         color: white !important;
         border-radius: 8px;
         padding: 10px 16px;
-        margin-top: 8px;
+        margin-top: 4px;
     }
     .stButton>button:hover {
         background-color: #777 !important;
@@ -60,10 +60,15 @@ st.markdown("""
         background-color: #111;
         color: #FFD700;
         font-weight: bold;
-        padding: 6px;
+        padding: 8px;
         text-align: center;
         white-space: nowrap;
         overflow: hidden;
+        animation: scroll-left 20s linear infinite;
+    }
+    @keyframes scroll-left {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -71,15 +76,15 @@ st.markdown("""
 # --- Banner ---
 st.markdown("""
     <div class='banner'>
-        💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaborations
+        💼 100% Placement | 👩‍🏫 Experienced Faculty | 🧪 Research Labs | 🧠 Hackathons | 🤝 Industry Collaboration | 🌐 Autonomous Institution
     </div>
 """, unsafe_allow_html=True)
 
 # --- Title ---
-st.markdown("<h1 style='text-align: center;'>😁 KCET Bot Assistant</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>🤖 KCET Bot Assistant</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border:1px solid #333;'>", unsafe_allow_html=True)
 
-# --- Load Vectorizer/Data ---
+# --- Load Vectorizer & Data ---
 @st.cache_data
 def load_vector_data():
     if os.path.exists(VECTOR_FILE):
@@ -96,40 +101,41 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# --- Session state for chat ---
+# --- Session State ---
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("🤖", "📅 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
+    st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
 
-# --- Chat Display ---
+# --- Display Chat ---
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for speaker, msg in st.session_state.chat_log:
     css_class = "user-msg" if speaker == "👤" else "bot-msg"
     st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Input at Bottom ---
-with st.form("user_input_form", clear_on_submit=True):
+# --- Input Area at Bottom ---
+with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
-    user_text = col1.text_input("Ask here...", label_visibility="collapsed")
+    user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
     submitted = col2.form_submit_button("➤")
 
-# --- Clear Chat ---
+# --- Clear Chat Button ---
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = []
     st.rerun()
 
-# --- On Input Submit ---
-# Save user text and flag that a message was submitted
-if submitted and user_text.strip():
-    st.session_state.pending_input = user_text.strip()
+# --- Handle Input Safely ---
+if submitted and user_input.strip():
+    st.session_state.pending_input = user_input.strip()
 
-# Process the input after form is rendered
+# --- Process After UI Renders ---
 if "pending_input" in st.session_state:
     user_msg = st.session_state.pending_input
-    del st.session_state.pending_input  # Clear after processing
+    del st.session_state.pending_input
 
+    # Add user question
     st.session_state.chat_log.append(("👤", user_msg))
 
+    # Vector search
     query_vec = vectorizer.transform([user_msg.lower()])
     similarity = cosine_similarity(query_vec, vectors)
     max_sim = similarity.max()
@@ -138,11 +144,12 @@ if "pending_input" in st.session_state:
     if max_sim >= THRESHOLD:
         response = df.iloc[idx]['Answer']
     else:
-        response = "❌ Sorry, I couldn't understand that. Please rephrase."
+        response = "❌ Sorry, I couldn't understand that. Please rephrase your question."
 
+    # Add bot response
     st.session_state.chat_log.append(("🤖", response))
 
-    # --- Generate and play TTS ---
+    # --- TTS Play ---
     try:
         tts = gTTS(text=response, lang='en')
         audio_file = f"tts_{uuid.uuid4().hex}.mp3"
@@ -159,4 +166,7 @@ if "pending_input" in st.session_state:
             st.markdown(audio_html, unsafe_allow_html=True)
         os.remove(audio_file)
     except Exception as e:
-        st.warning(f"Audio error: {e}")
+        st.error(f"TTS error: {e}")
+
+    # Force rerun to display updated chat log
+    st.rerun()
