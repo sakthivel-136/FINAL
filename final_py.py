@@ -1,6 +1,3 @@
-
-
-
 import streamlit as st
 import pandas as pd
 import pickle
@@ -19,9 +16,9 @@ from gtts import gTTS
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
+S# ✅ Set your sender email and app password
 SENDER_EMAIL = ("kamarajengg.edu.in@Gmail.com ")
 SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
-
 # --- Page Setup ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
@@ -124,7 +121,7 @@ with st.form("chat_form", clear_on_submit=True):
     submitted = col2.form_submit_button("\u27a4")
 
 # --- Clear Button ---
-if st.button("🩹 Clear Chat"):
+if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("🤖", "Hello! I'm your KCET Assistant. Ask me anything.")]
     st.rerun()
 
@@ -143,18 +140,7 @@ if submitted and user_input.strip():
     else:
         full_response = "❌ Sorry, I couldn't understand that. Please rephrase."
 
-    # Typing animation simulation
-    bot_msg = ""
-    placeholder = st.empty()
-    for char in full_response:
-        bot_msg += char
-        placeholder.markdown(f"<div style='background-color:#222; padding:10px; border-radius:10px; text-align:left; margin:5px 0;'>"
-                             f"<b>🤖</b>: {bot_msg}</div>", unsafe_allow_html=True)
-        time.sleep(0.015)
-
-    st.session_state.chat_log.append(("🤖", full_response))
-
-    # --- TTS Audio ---
+    # Generate TTS audio first
     try:
         tts = gTTS(text=full_response, lang='en')
         audio_file = f"tts_{uuid.uuid4().hex}.mp3"
@@ -173,6 +159,16 @@ if submitted and user_input.strip():
     except Exception as e:
         st.error(f"TTS error: {e}")
 
+    # Typing animation simulation
+    bot_msg = ""
+    placeholder = st.empty()
+    for char in full_response:
+        bot_msg += char
+        placeholder.markdown(f"<div style='background-color:#222; padding:10px; border-radius:10px; text-align:left; margin:5px 0;'>"
+                             f"<b>🤖</b>: {bot_msg}</div>", unsafe_allow_html=True)
+        time.sleep(0.015)
+
+    st.session_state.chat_log.append(("🤖", full_response))
     st.rerun()
 
 # --- Floating Button to Show Email PDF Form ---
