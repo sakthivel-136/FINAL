@@ -1,3 +1,6 @@
+
+
+
 import streamlit as st
 import pandas as pd
 import pickle
@@ -16,7 +19,6 @@ from gtts import gTTS
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
-# ✅ Set your sender email and app password
 SENDER_EMAIL = ("kamarajengg.edu.in@Gmail.com ")
 SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
 
@@ -50,17 +52,33 @@ st.markdown("""
         padding: 10px 0 5px 0;
         font-weight: bold;
     }
-    .toggle-box {
+    .email-fab {
         position: fixed;
-        left: 10px;
+        left: 15px;
+        bottom: 20px;
+        background-color: #1c1c1c;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+        cursor: pointer;
+        z-index: 1001;
+        box-shadow: 0px 0px 6px #000;
+    }
+    .email-popup {
+        position: fixed;
+        left: 80px;
         bottom: 30px;
         background-color: #222;
-        color: white;
-        padding: 10px;
+        padding: 16px;
         border-radius: 10px;
-        box-shadow: 0 0 5px #000;
         max-width: 300px;
-        z-index: 999;
+        z-index: 1002;
+        box-shadow: 0 0 5px #000;
     }
     </style>
     <div class="scrolling-banner">
@@ -157,52 +175,61 @@ if submitted and user_input.strip():
 
     st.rerun()
 
-# --- PDF & Email Export ---
+# --- Floating Button to Show Email PDF Form ---
+show_email = st.session_state.get("show_email", False)
+if st.button("✉️", key="show_email_btn"):
+    st.session_state["show_email"] = not show_email
+    st.rerun()
+
+if st.session_state.get("show_email"):
+    with st.container():
+        st.markdown("<div class='email-popup'>", unsafe_allow_html=True)
+        email = st.text_input("Email Address", key="email_input")
+        if st.button("Send PDF"):
+            if not email or "@" not in email:
+                st.error("Please enter a valid email address.")
+            else:
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
+                pdf.set_font("DejaVu", size=12)
+
+                def clean_text(text):
+                    return ''.join(c if ord(c) < 128 else '?' for c in text)
+
+                for speaker, msg in st.session_state.chat_log:
+                    safe_msg = clean_text(f"{speaker}: {msg}")
+                    pdf.multi_cell(0, 10, safe_msg)
+
+                filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
+                try:
+                    pdf.output(filename)
+
+                    msg = EmailMessage()
+                    msg['Subject'] = "KCET Chat Log"
+                    msg['From'] = SENDER_EMAIL
+                    msg['To'] = email
+                    msg.set_content("Here is your chat log with the KCET Assistant.")
+
+                    with open(filename, "rb") as f:
+                        msg.add_attachment(f.read(), maintype='application', subtype='pdf', filename="kcet_chat.pdf")
+
+                    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                        smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
+                        smtp.send_message(msg)
+
+                    st.success("✅ Email sent successfully!")
+
+                except Exception as e:
+                    st.error(f"Email error: {e}")
+                finally:
+                    if os.path.exists(filename):
+                        os.remove(filename)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# --- Floating Action Button UI ---
 st.markdown("""
-<div class="toggle-box">
-    <b>📄 Export Chat</b><br>
+<div class="email-fab">
+  ✉️
+</div>
 """, unsafe_allow_html=True)
-
-email = st.text_input("Enter Email to Send PDF", placeholder="you@example.com")
-if st.button("Send PDF to Email"):
-    if not email or "@" not in email:
-        st.error("Please enter a valid email address.")
-    else:
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
-        pdf.set_font("DejaVu", size=12)
-
-        def clean_text(text):
-            return ''.join(c if ord(c) < 128 else '?' for c in text)
-
-        for speaker, msg in st.session_state.chat_log:
-            safe_msg = clean_text(f"{speaker}: {msg}")
-            pdf.multi_cell(0, 10, safe_msg)
-
-        filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
-        try:
-            pdf.output(filename)
-
-            msg = EmailMessage()
-            msg['Subject'] = "KCET Chat Log"
-            msg['From'] = SENDER_EMAIL
-            msg['To'] = email
-            msg.set_content("Here is your chat log with the KCET Assistant.")
-
-            with open(filename, "rb") as f:
-                msg.add_attachment(f.read(), maintype='application', subtype='pdf', filename="kcet_chat.pdf")
-
-            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-                smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
-                smtp.send_message(msg)
-
-            st.success("✅ Email sent successfully!")
-
-        except Exception as e:
-            st.error(f"Email error: {e}")
-        finally:
-            if os.path.exists(filename):
-                os.remove(filename)
-
-st.markdown("</div>", unsafe_allow_html=True)
