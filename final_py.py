@@ -114,73 +114,6 @@ for speaker, msg in st.session_state.chat_log:
                 f"<b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Input Form at Bottom ---
-# --- Chat Logic ---
-if submitted and user_input.strip():
-    user_msg = user_input.strip()
-    st.session_state.chat_log.append(("👤", user_msg))
-
-    vec = vectorizer.transform([user_msg.lower()])
-    similarity = cosine_similarity(vec, vectors)
-    max_sim = similarity.max()
-    idx = similarity.argmax()
-
-    if max_sim >= THRESHOLD:
-        full_response = df.iloc[idx]['Answer']
-    else:
-        full_response = "❌ Sorry, I couldn't understand that. Please rephrase."
-
-    # Typing animation with placeholder
-    bot_msg = ""
-    placeholder = st.empty()
-    for char in full_response:
-        bot_msg += char
-        placeholder.markdown(
-            f"<div style='background-color:#222; padding:10px; border-radius:10px; text-align:left; margin:5px 0;'>"
-            f"<b>🤖</b>: {bot_msg}</div>", unsafe_allow_html=True)
-        time.sleep(0.015)
-
-    # Append final bot response
-    st.session_state.chat_log.append(("🤖", full_response))
-
-    # --- TTS Audio ---
-    try:
-        tts = gTTS(text=full_response, lang='en')
-        audio_file = f"tts_{uuid.uuid4().hex}.mp3"
-        tts.save(audio_file)
-
-        with open(audio_file, "rb") as f:
-            audio_bytes = f.read()
-            b64 = base64.b64encode(audio_bytes).decode()
-            audio_html = f"""
-                <audio autoplay>
-                    <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
-                </audio>
-            """
-            st.markdown(audio_html, unsafe_allow_html=True)
-
-        os.remove(audio_file)
-    except Exception as e:
-        st.error(f"TTS error: {e}")
-
-
-    # --- Typing Animation ---
-    bot_msg = ""
-    placeholder = st.empty()
-    for char in full_response:
-        bot_msg += char
-        placeholder.markdown(f"<div style='background-color:#222; padding:10px; border-radius:10px; text-align:left; margin:5px 0;'>"
-                             f"<b>🧠</b>: {bot_msg}</div>", unsafe_allow_html=True)
-        time.sleep(0.015)
-
-    st.session_state.chat_log.append(("🤖", full_response))
-    st.rerun()
-
-# --- Clear Button ---
-if st.button("🧹 Clear Chat"):
-    st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
-    st.rerun()
-
 # --- Floating Button to Show Email PDF Form ---
 show_email = st.session_state.get("show_email", False)
 if st.button("✉️", key="show_email_btn"):
@@ -232,6 +165,62 @@ if st.session_state.get("show_email"):
                     if os.path.exists(filename):
                         os.remove(filename)
         st.markdown("</div>", unsafe_allow_html=True)
+
+# --- Input Form at Bottom ---
+with st.form("chat_form", clear_on_submit=True):
+    col1, col2 = st.columns([10, 1])
+    user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
+    submitted = col2.form_submit_button("➤")
+
+# --- Chat Logic ---
+if submitted and user_input.strip():
+    user_msg = user_input.strip()
+    st.session_state.chat_log.append(("👤", user_msg))
+
+    vec = vectorizer.transform([user_msg.lower()])
+    similarity = cosine_similarity(vec, vectors)
+    max_sim = similarity.max()
+    idx = similarity.argmax()
+
+    if max_sim >= THRESHOLD:
+        full_response = df.iloc[idx]['Answer']
+    else:
+        full_response = "❌ Sorry, I couldn't understand that. Please rephrase."
+
+    # --- TTS First ---
+    try:
+        tts = gTTS(text=full_response, lang='en')
+        audio_file = f"tts_{uuid.uuid4().hex}.mp3"
+        tts.save(audio_file)
+
+        with open(audio_file, "rb") as f:
+            audio_bytes = f.read()
+            b64 = base64.b64encode(audio_bytes).decode()
+            audio_html = f"""
+                <audio autoplay>
+                    <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+                </audio>
+            """
+            st.components.v1.html(audio_html, height=0)
+        os.remove(audio_file)
+    except Exception as e:
+        st.error(f"TTS error: {e}")
+
+    # --- Typing Animation ---
+    bot_msg = ""
+    placeholder = st.empty()
+    for char in full_response:
+        bot_msg += char
+        placeholder.markdown(f"<div style='background-color:#222; padding:10px; border-radius:10px; text-align:left; margin:5px 0;'>"
+                             f"<b>🤖</b>: {bot_msg}</div>", unsafe_allow_html=True)
+        time.sleep(0.015)
+
+    st.session_state.chat_log.append(("🤖", full_response))
+
+# --- Clear Button ---
+if st.button("🧹 Clear Chat"):
+    st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
+    st.rerun()
 
 # --- Floating Action Button UI ---
 st.markdown("""
