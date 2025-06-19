@@ -103,16 +103,7 @@ vectorizer, vectors, df = load_vector_data()
 
 # --- Chat History ---
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("🤖", "Hello! I'm your KCET Assistant. Ask me anything.")]
-
-# --- Display Chat First ---
-st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
-for speaker, msg in st.session_state.chat_log:
-    align = 'right' if speaker == '👤' else 'left'
-    bg = '#444' if speaker == '👤' else '#222'
-    st.markdown(f"<div style='background-color:{bg}; padding:10px; border-radius:10px; text-align:{align}; margin:5px 0;'>"
-                f"<b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
-st.markdown("</div>", unsafe_allow_html=True)
+    st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
 
 # --- Input Form at Bottom ---
 with st.form("chat_form", clear_on_submit=True):
@@ -160,15 +151,24 @@ if submitted and user_input.strip():
     for char in full_response:
         bot_msg += char
         placeholder.markdown(f"<div style='background-color:#222; padding:10px; border-radius:10px; text-align:left; margin:5px 0;'>"
-                             f"<b>🤖</b>: {bot_msg}</div>", unsafe_allow_html=True)
+                             f"<b>🧠</b>: {bot_msg}</div>", unsafe_allow_html=True)
         time.sleep(0.015)
 
     st.session_state.chat_log.append(("🤖", full_response))
     st.rerun()
 
+# --- Display Chat ---
+st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
+for speaker, msg in st.session_state.chat_log:
+    align = 'right' if speaker == '👤' else 'left'
+    bg = '#444' if speaker == '👤' else '#222'
+    st.markdown(f"<div style='background-color:{bg}; padding:10px; border-radius:10px; text-align:{align}; margin:5px 0;'>"
+                f"<b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
+
 # --- Clear Button ---
 if st.button("🧹 Clear Chat"):
-    st.session_state.chat_log = [("🤖", "Hello! I'm your KCET Assistant. Ask me anything.")]
+    st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
     st.rerun()
 
 # --- Floating Button to Show Email PDF Form ---
