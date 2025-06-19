@@ -1,3 +1,5 @@
+
+
 import streamlit as st
 import pandas as pd
 import pickle
@@ -9,6 +11,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from fpdf import FPDF
 import smtplib
 from email.message import EmailMessage
+import re
 
 # --- Constants ---
 VECTOR_FILE = "vectorized.pkl"
@@ -19,6 +22,32 @@ SENDER_PASSWORD = "qwertyuiop123-"  # Replace with your app password
 
 # --- Page Setup ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
+
+# --- Scroll Banner ---
+st.markdown("""
+    <style>
+    .scrolling-banner {
+        overflow: hidden;
+        white-space: nowrap;
+        box-sizing: border-box;
+        animation: scroll-left 20s linear infinite;
+        color: gold;
+        background-color: #111;
+        padding: 8px;
+        font-weight: bold;
+        font-size: 16px;
+        text-align: center;
+    }
+
+    @keyframes scroll-left {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
+    }
+    </style>
+    <div class="scrolling-banner">
+        💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
+    </div>
+""", unsafe_allow_html=True)
 
 # --- Load Data ---
 @st.cache_data
@@ -93,31 +122,8 @@ if st.button("Send PDF to Email"):
         # Generate PDF
         pdf = FPDF()
         pdf.add_page()
-        pdf.set_font("Arial", size=12)
-        for speaker, msg in st.session_state.chat_log:
-            pdf.multi_cell(0, 10, f"{speaker}: {msg}")
-        filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
-        pdf.output(filename)
+        pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
+        pdf.set_font("DejaVu", size=12)
 
-        # Email it
-        try:
-            msg = EmailMessage()
-            msg['Subject'] = "KCET Chat Log"
-            msg['From'] = SENDER_EMAIL
-            msg['To'] = email
-            msg.set_content("Here is your chat log with the KCET Assistant.")
-
-            with open(filename, "rb") as f:
-                file_data = f.read()
-                msg.add_attachment(file_data, maintype='application', subtype='pdf', filename="kcet_chat.pdf")
-
-            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-                smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
-                smtp.send_message(msg)
-
-            st.success("✅ PDF has been emailed successfully!")
-        except Exception as e:
-            st.error(f"❌ Failed to send email: {e}")
-        finally:
-            if os.path.exists(filename):
-                os.remove(filename)
+        def clean_text(text):
+            return re.sub(r'[^
