@@ -7,11 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1nDDBJoshY8QJqi1oBTMM4uOt67h2tcKL
 """
 # final.py
-# final.py
-
-# final.py
-
-# final.py
 
 import streamlit as st
 import pandas as pd
@@ -28,7 +23,7 @@ THRESHOLD = 0.8
 # Page Config
 st.set_page_config(page_title="🎓 KCET FAQ Chatbot", layout="centered")
 
-# --- Custom CSS for modern UI ---
+# --- Modern Dark UI CSS ---
 st.markdown("""
     <style>
     body {
@@ -39,6 +34,7 @@ st.markdown("""
     .chat-container {
         max-width: 700px;
         margin: 0 auto;
+        padding-bottom: 120px;
     }
     .user-msg, .bot-msg {
         padding: 12px 16px;
@@ -59,33 +55,29 @@ st.markdown("""
         margin-right: auto;
         text-align: left;
     }
-    .input-box input {
+    .chat-input-container {
+        position: fixed;
+        bottom: 20px;
+        left: 0;
+        width: 100%;
+        background-color: #0f0f0f;
+        padding: 10px 20px;
+        box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.3);
+        z-index: 999;
+    }
+    .chat-input-container input {
         background-color: #1e1e1e;
         color: white;
         border: 1px solid #444;
-        border-radius: 8px;
-        padding: 12px;
+        border-radius: 10px;
+        padding: 14px;
         width: 100%;
-    }
-    .input-box input:focus {
-        border-color: #555;
-        outline: none;
-    }
-    .stButton>button {
-        background-color: #444 !important;
-        color: white !important;
-        border-radius: 8px;
-        border: none;
-        padding: 10px 16px;
-        margin-top: 10px;
-    }
-    .stButton>button:hover {
-        background-color: #666 !important;
+        font-size: 16px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# App Title
+# Title
 st.markdown("<h1 style='text-align:center;'>🤖 KCET Bot Assistant</h1><hr>", unsafe_allow_html=True)
 
 # Load vectorizer and data
@@ -108,20 +100,34 @@ def load_or_vectorize():
 
 vectorizer, vectors, df = load_or_vectorize()
 
-# Session state
+# Initialize chat log
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
 
-# Input UI
+# --- Display Chat Messages ---
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 
-with st.form("chat_form", clear_on_submit=True):
-    st.markdown("<div class='input-box'>", unsafe_allow_html=True)
-    user_input = st.text_input("Type your question here...", label_visibility="collapsed", key="input_text")
-    st.markdown("</div>", unsafe_allow_html=True)
-    submitted = st.form_submit_button("Send")
+for speaker, msg in st.session_state.chat_log:
+    css_class = "user-msg" if speaker == "👤" else "bot-msg"
+    st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 
-if submitted and user_input:
+st.markdown("</div>", unsafe_allow_html=True)
+
+# --- Floating Input Box ---
+with st.container():
+    st.markdown("<div class='chat-input-container'>", unsafe_allow_html=True)
+
+    user_input = st.text_input(
+        label="Ask a question...",
+        label_visibility="collapsed",
+        key="chat_input",
+        placeholder="Type your question and press Enter..."
+    )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# Process on Enter
+if user_input:
     query = user_input.strip().lower()
     try:
         query_vector = vectorizer.transform([query])
@@ -137,18 +143,15 @@ if submitted and user_input:
         st.session_state.chat_log.append(("👤", user_input))
         st.session_state.chat_log.append(("🤖", answer))
 
+        # Clear the input field by resetting the key
+        st.experimental_rerun()
+
     except Exception as e:
         st.error(f"⚠️ Error: {e}")
 
-# Display chat history
-for speaker, msg in st.session_state.chat_log:
-    css_class = "user-msg" if speaker == "👤" else "bot-msg"
-    st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
-
-st.markdown("</div>", unsafe_allow_html=True)  # Close chat-container
-
-# 🧹 Clear chat button
-st.markdown("<br>", unsafe_allow_html=True)
+# --- Clear Chat Button ---
+st.markdown("<br><br>", unsafe_allow_html=True)
 if st.button("🧹 Clear Chat", use_container_width=True):
     st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
+    st.experimental_rerun()
 
