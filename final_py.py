@@ -6,6 +6,7 @@ import uuid
 import time
 import base64
 import smtplib
+from datetime import datetime
 from email.message import EmailMessage
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -17,7 +18,7 @@ VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
 SENDER_EMAIL = ("kamarajengg.edu.in@Gmail.com ")
-SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
+SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
 
 # --- Page Setup ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
@@ -51,7 +52,7 @@ st.markdown("""
     }
     .email-fab {
         position: fixed;
-        left: 5px;
+        left: 20px;
         bottom: 20px;
         background-color: #1c1c1c;
         border-radius: 50%;
@@ -69,7 +70,7 @@ st.markdown("""
     }
     .email-popup {
         position: fixed;
-        left: 70px;
+        left: 80px;
         bottom: 30px;
         background-color: #222;
         padding: 16px;
@@ -108,7 +109,6 @@ st.markdown("""
     <div class="chat-header">KCET Assistant</div>
 """, unsafe_allow_html=True)
 
-# --- Load Data ---
 @st.cache_data
 def load_vector_data():
     if os.path.exists(VECTOR_FILE):
@@ -126,37 +126,24 @@ def load_vector_data():
 vectorizer, vectors, df = load_vector_data()
 
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
+    st.session_state.chat_log = [("🧠", f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Hello! I'm your KCET Assistant. Ask me anything.")]
 
-# --- Display Chat History ---
-st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
-for speaker, msg in st.session_state.chat_log:
-    align = 'right' if speaker == '👤' else 'left'
-    bg = '#444' if speaker == '👤' else '#222'
-    avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker == "👤" else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
-    st.markdown(f"""
-    <div class='message' style='background-color:{bg}; text-align:{align};'>
-        <img src='{avatar}' class='avatar'/>
-        <div><b>{speaker}</b>: {msg}</div>
-    </div>""", unsafe_allow_html=True)
-st.markdown("</div>", unsafe_allow_html=True)
-
-# --- Input Form ---
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
     submitted = col2.form_submit_button("\u27a4")
 
 if submitted and user_input.strip():
-    user_msg = user_input.strip()
+    user_msg = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {user_input.strip()}"
     st.session_state.chat_log.append(("👤", user_msg))
 
-    vec = vectorizer.transform([user_msg.lower()])
+    vec = vectorizer.transform([user_input.lower()])
     similarity = cosine_similarity(vec, vectors)
     max_sim = similarity.max()
     idx = similarity.argmax()
 
     full_response = df.iloc[idx]['Answer'] if max_sim >= THRESHOLD else "❌ Sorry, I couldn't understand that. Please rephrase."
+    bot_msg = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {full_response}"
 
     try:
         tts = gTTS(text=full_response, lang='en')
@@ -171,16 +158,27 @@ if submitted and user_input.strip():
                     <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
                 </audio>
             """
-            st.components.v1.html(audio_html, height=0)
+            st.markdown(audio_html, unsafe_allow_html=True)
         os.remove(audio_file)
     except Exception as e:
         st.error(f"TTS error: {e}")
 
-    st.session_state.chat_log.append(("🤖", full_response))
+    st.session_state.chat_log.append(("🤖", bot_msg))
     st.rerun()
 
+st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
+for speaker, msg in st.session_state.chat_log:
+    align = 'right' if speaker == '👤' else 'left'
+    bg = '#444' if speaker == '👤' else '#222'
+    avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker == "👤" else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
+    st.markdown(f"""
+    <div class='message' style='background-color:{bg}; text-align:{align};'>
+        <img src='{avatar}' class='avatar'/>
+        <div><b>{speaker}</b>: {msg}</div>
+    </div>""", unsafe_allow_html=True)
+
 if st.button("🧹 Clear Chat"):
-    st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
+    st.session_state.chat_log = [("🧠", f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Hello! I'm your KCET Assistant. Ask me anything.")]
     st.rerun()
 
 # --- Floating Button to Show Email PDF Form ---
@@ -194,11 +192,12 @@ if st.session_state.get("show_email"):
         st.markdown("<div class='email-popup'>", unsafe_allow_html=True)
         email = st.text_input("Email Address", key="email_input")
         file_type = st.selectbox("Choose file format", ["PDF", "TXT", "DOC"], key="file_type")
+        custom_name = st.text_input("Enter custom file name (without extension)", key="filename")
         if st.button("Send"):
             if not email or "@" not in email:
                 st.error("Please enter a valid email address.")
             else:
-                filename = f"kcet_chat_{uuid.uuid4().hex}"
+                filename = custom_name or f"kcet_chat_{uuid.uuid4().hex}"
                 attachment_path = ""
                 try:
                     if file_type == "PDF":
@@ -206,11 +205,8 @@ if st.session_state.get("show_email"):
                         pdf.add_page()
                         pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
                         pdf.set_font("DejaVu", size=12)
-
                         for speaker, msg in st.session_state.chat_log:
-                            safe_msg = f"{speaker}: {msg}"
-                            pdf.multi_cell(0, 10, safe_msg)
-
+                            pdf.multi_cell(0, 10, f"{speaker}: {msg}")
                         attachment_path = f"{filename}.pdf"
                         pdf.output(attachment_path)
 
