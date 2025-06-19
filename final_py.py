@@ -115,11 +115,6 @@ for speaker, msg in st.session_state.chat_log:
 st.markdown("</div>", unsafe_allow_html=True)
 
 # --- Input Form at Bottom ---
-with st.form("chat_form", clear_on_submit=True):
-    col1, col2 = st.columns([10, 1])
-    user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
-    submitted = col2.form_submit_button("➤")
-
 # --- Chat Logic ---
 if submitted and user_input.strip():
     user_msg = user_input.strip()
@@ -135,7 +130,20 @@ if submitted and user_input.strip():
     else:
         full_response = "❌ Sorry, I couldn't understand that. Please rephrase."
 
-    # --- TTS First ---
+    # Typing animation with placeholder
+    bot_msg = ""
+    placeholder = st.empty()
+    for char in full_response:
+        bot_msg += char
+        placeholder.markdown(
+            f"<div style='background-color:#222; padding:10px; border-radius:10px; text-align:left; margin:5px 0;'>"
+            f"<b>🤖</b>: {bot_msg}</div>", unsafe_allow_html=True)
+        time.sleep(0.015)
+
+    # Append final bot response
+    st.session_state.chat_log.append(("🤖", full_response))
+
+    # --- TTS Audio ---
     try:
         tts = gTTS(text=full_response, lang='en')
         audio_file = f"tts_{uuid.uuid4().hex}.mp3"
@@ -149,10 +157,12 @@ if submitted and user_input.strip():
                     <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
                 </audio>
             """
-            st.components.v1.html(audio_html, height=0)
+            st.markdown(audio_html, unsafe_allow_html=True)
+
         os.remove(audio_file)
     except Exception as e:
         st.error(f"TTS error: {e}")
+
 
     # --- Typing Animation ---
     bot_msg = ""
