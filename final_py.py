@@ -8,8 +8,6 @@ Original file is located at
 """
 # final.py
 
-# final.py
-
 import streamlit as st
 import pandas as pd
 import pickle
@@ -142,10 +140,5 @@ for speaker, msg in st.session_state.chat_log:
     css_class = "user-msg" if speaker == "👤" else "bot-msg"
     st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 
-st.markdown("</div>", unsafe_allow_html=True)  # Close chat-container
-
-# 🧹 Clear chat button
-st.markdown("<br>", unsafe_allow_html=True)
-if st.button("🧹 Clear Chat", use_container_width=True):
-    st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
+st.markdown("</div>", unsafe_allow_html=True)
 
