@@ -13,7 +13,12 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from fpdf import FPDF
 from gtts import gTTS
-from pydub.utils import mediainfo
+
+# Optional: fallback if mediainfo is unavailable
+try:
+    from pydub.utils import mediainfo
+except ImportError:
+    mediainfo = None
 
 # --- Constants ---
 VECTOR_FILE = "vectorized.pkl"
@@ -140,8 +145,14 @@ if submitted and user_input.strip():
             """
             st.markdown(audio_html, unsafe_allow_html=True)
 
-        info = mediainfo(audio_file)
-        duration_sec = float(info['duration']) if 'duration' in info else 4.0
+        duration_sec = 4.0
+        if mediainfo:
+            try:
+                info = mediainfo(audio_file)
+                duration_sec = float(info['duration']) if 'duration' in info else 4.0
+            except:
+                pass
+
         time.sleep(math.ceil(duration_sec))
         os.remove(audio_file)
     except Exception as e:
