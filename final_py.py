@@ -2,89 +2,69 @@ import streamlit as st
 import pandas as pd
 import pickle
 import os
+import uuid
+import time
 import base64
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from fpdf import FPDF
 from gtts import gTTS
-import uuid
 
-# Constants
+# --- Constants ---
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
 
-st.set_page_config(page_title="🎓 KCET FAQ Chatbot", layout="centered")
+# --- Page Setup ---
+st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-# --- Custom CSS ---
+# --- Scroll Banner ---
 st.markdown("""
     <style>
-    body {
-        background-color: #0f0f0f;
-        color: white;
-        font-family: 'Segoe UI', sans-serif;
-    }
-    .chat-container {
-        padding: 4px 12px;
-        margin-bottom: 10px;
-    }
-    .user-msg, .bot-msg {
-        padding: 10px 16px;
-        border-radius: 20px;
-        margin: 6px 0;
-        max-width: 85%;
-        word-wrap: break-word;
-    }
-    .user-msg {
-        background-color: #444;
-        color: white;
-        margin-left: auto;
-        text-align: right;
-    }
-    .bot-msg {
-        background-color: #1c1c1c;
-        color: white;
-        margin-right: auto;
-        text-align: left;
-    }
-    .stButton>button {
-        background-color: #555 !important;
-        color: white !important;
-        border-radius: 8px;
-        padding: 10px 16px;
-        margin-top: 4px;
-    }
-    .stButton>button:hover {
-        background-color: #777 !important;
-    }
-    .banner {
-        background-color: #111;
-        color: #FFD700;
-        font-weight: bold;
-        padding: 8px;
-        text-align: center;
-        white-space: nowrap;
+    .scrolling-banner {
         overflow: hidden;
+        white-space: nowrap;
+        box-sizing: border-box;
         animation: scroll-left 20s linear infinite;
+        color: gold;
+        background-color: #111;
+        padding: 8px;
+        font-weight: bold;
+        font-size: 16px;
+        text-align: center;
     }
+
     @keyframes scroll-left {
         0% { transform: translateX(100%); }
         100% { transform: translateX(-100%); }
     }
+    .chat-header {
+        font-size: 28px;
+        color: white;
+        text-align: center;
+        padding: 10px 0 5px 0;
+        font-weight: bold;
+    }
+    .toggle-box {
+        position: fixed;
+        left: 10px;
+        bottom: 30px;
+        background-color: #222;
+        color: white;
+        padding: 10px;
+        border-radius: 10px;
+        box-shadow: 0 0 5px #000;
+        max-width: 300px;
+        z-index: 999;
+    }
     </style>
-""", unsafe_allow_html=True)
-
-# --- Banner ---
-st.markdown("""
-    <div class='banner'>
-        💼 100% Placement | 👩‍🏫 Experienced Faculty | 🧪 Research Labs | 🧠 Hackathons | 🤝 Industry Collaboration | 🌐 Autonomous Institution
+    <div class="scrolling-banner">
+        💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
     </div>
+    <div class="chat-header">KCET Assistant</div>
 """, unsafe_allow_html=True)
 
-# --- Title ---
-st.markdown("<h1 style='text-align: center;'>🤖 KCET Bot Assistant</h1>", unsafe_allow_html=True)
-st.markdown("<hr style='border:1px solid #333;'>", unsafe_allow_html=True)
-
-# --- Load Vectorizer & Data ---
+# --- Load Data ---
 @st.cache_data
 def load_vector_data():
     if os.path.exists(VECTOR_FILE):
@@ -101,57 +81,59 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# --- Session State ---
+# --- Chat History ---
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("🤖", "👋 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
+    st.session_state.chat_log = [("🤖", "Hello! I'm your KCET Assistant. Ask me anything.")]
 
 # --- Display Chat ---
-st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
+st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg in st.session_state.chat_log:
-    css_class = "user-msg" if speaker == "👤" else "bot-msg"
-    st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
+    align = 'right' if speaker == '👤' else 'left'
+    bg = '#444' if speaker == '👤' else '#222'
+    st.markdown(f"<div style='background-color:{bg}; padding:10px; border-radius:10px; text-align:{align}; margin:5px 0;'>"
+                f"<b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Input Area at Bottom ---
+# --- Input Form ---
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
-    submitted = col2.form_submit_button("➤")
+    submitted = col2.form_submit_button("\u27a4")
 
-# --- Clear Chat Button ---
+# --- Clear Button ---
 if st.button("🧹 Clear Chat"):
-    st.session_state.chat_log = []
+    st.session_state.chat_log = [("🤖", "Hello! I'm your KCET Assistant. Ask me anything.")]
     st.rerun()
 
-# --- Handle Input Safely ---
+# --- Chat Logic ---
 if submitted and user_input.strip():
-    st.session_state.pending_input = user_input.strip()
-
-# --- Process After UI Renders ---
-if "pending_input" in st.session_state:
-    user_msg = st.session_state.pending_input
-    del st.session_state.pending_input
-
-    # Add user question
+    user_msg = user_input.strip()
     st.session_state.chat_log.append(("👤", user_msg))
 
-    # Vector search
-    query_vec = vectorizer.transform([user_msg.lower()])
-    similarity = cosine_similarity(query_vec, vectors)
+    vec = vectorizer.transform([user_msg.lower()])
+    similarity = cosine_similarity(vec, vectors)
     max_sim = similarity.max()
     idx = similarity.argmax()
 
     if max_sim >= THRESHOLD:
-        response = df.iloc[idx]['Answer']
+        full_response = df.iloc[idx]['Answer']
     else:
-        response = "❌ Sorry, I couldn't understand that. Please rephrase your question."
+        full_response = "❌ Sorry, I couldn't understand that. Please rephrase."
 
-    # Add bot response
-    st.session_state.chat_log.append(("🤖", response))
+    # Typing animation simulation
+    bot_msg = ""
+    placeholder = st.empty()
+    for char in full_response:
+        bot_msg += char
+        placeholder.markdown(f"<div style='background-color:#222; padding:10px; border-radius:10px; text-align:left; margin:5px 0;'>"
+                             f"<b>🤖</b>: {bot_msg}</div>", unsafe_allow_html=True)
+        time.sleep(0.015)
 
-    # --- TTS Play with invisible HTML audio ---
+    st.session_state.chat_log.append(("🤖", full_response))
+
+    # --- TTS Audio ---
     try:
-        tts = gTTS(text=response, lang='en')
+        tts = gTTS(text=full_response, lang='en')
         audio_file = f"tts_{uuid.uuid4().hex}.mp3"
         tts.save(audio_file)
 
@@ -159,16 +141,50 @@ if "pending_input" in st.session_state:
             audio_bytes = f.read()
             b64 = base64.b64encode(audio_bytes).decode()
             audio_html = f"""
-                <html><body>
                 <audio autoplay="true">
                     <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
                 </audio>
-                </body></html>
             """
-            st.components.v1.html(audio_html, height=0)
+            st.markdown(audio_html, unsafe_allow_html=True)
         os.remove(audio_file)
     except Exception as e:
         st.error(f"TTS error: {e}")
 
-    # Force rerun to show new chat message
     st.rerun()
+
+# --- PDF Export Button ---
+st.markdown("""
+<div class="toggle-box">
+    <b>📄 Export Chat</b><br>
+""", unsafe_allow_html=True)
+
+if st.button("Download PDF"):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
+    pdf.set_font("DejaVu", size=12)
+
+    def clean_text(text):
+        return ''.join(c if ord(c) < 128 else '?' for c in text)
+
+    for speaker, msg in st.session_state.chat_log:
+        safe_msg = clean_text(f"{speaker}: {msg}")
+        pdf.multi_cell(0, 10, safe_msg)
+
+    filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
+    try:
+        pdf.output(filename)
+        with open(filename, "rb") as f:
+            btn = st.download_button(
+                label="Click to Download",
+                data=f,
+                file_name="kcet_chat.pdf",
+                mime="application/pdf"
+            )
+    except Exception as e:
+        st.error(f"❌ Failed to generate PDF: {e}")
+    finally:
+        if os.path.exists(filename):
+            os.remove(filename)
+
+st.markdown("</div>", unsafe_allow_html=True)
