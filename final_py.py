@@ -25,7 +25,7 @@ st.markdown("""
     }
     .chat-container {
         padding: 2px 10px;
-        margin-bottom: 4px;
+        margin-bottom: 0px;
     }
     .user-msg, .bot-msg {
         padding: 10px 14px;
@@ -101,26 +101,15 @@ vectorizer, vectors, df = load_vector_data()
 
 # Session state
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("🤖", "📅 Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")]
-
-# --- Chat Display ---
-if len(st.session_state.chat_log) > 0:
-    st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
-    for speaker, msg in st.session_state.chat_log:
-        css_class = "user-msg" if speaker == "👤" else "bot-msg"
-        st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.session_state.chat_log = [
+        ("🤖", "🗓️ Hello! I'm your KCET Assistant. Ask me anything about the college or exams.")
+    ]
 
 # --- Input Area ---
-with st.form("chat_input_form", clear_on_submit=True):
+with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
-    user_input = col1.text_input("Type your message...", key="user_input", label_visibility="collapsed")
+    user_input = col1.text_input("Type your message...", key="input", label_visibility="collapsed")
     send = col2.form_submit_button("➤")
-
-# --- Clear Button ---
-if st.button("🪯 Clear Chat"):
-    st.session_state.chat_log = []
-    st.rerun()
 
 # --- Handle Input ---
 if send and user_input:
@@ -156,3 +145,15 @@ if send and user_input:
         os.remove(audio_file)
     except Exception as e:
         st.error(f"TTS error: {e}")
+
+# --- Chat Display ---
+st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
+for speaker, msg in st.session_state.chat_log:
+    css_class = "user-msg" if speaker == "👤" else "bot-msg"
+    st.markdown(f"<div class='{css_class}'><b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
+
+# --- Clear Button ---
+if st.button("🪯 Clear Chat"):
+    st.session_state.chat_log = []
+    st.rerun()
