@@ -22,13 +22,9 @@ SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
 # --- Page Setup ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-# --- Custom CSS ---
+# --- Scroll Banner ---
 st.markdown("""
     <style>
-    body {
-        background-color: #000;
-        color: white;
-    }
     .scrolling-banner {
         overflow: hidden;
         white-space: nowrap;
@@ -41,6 +37,7 @@ st.markdown("""
         font-size: 16px;
         text-align: center;
     }
+
     @keyframes scroll-left {
         0% { transform: translateX(100%); }
         100% { transform: translateX(-100%); }
@@ -54,7 +51,7 @@ st.markdown("""
     }
     .email-fab {
         position: fixed;
-        left: 15px;
+        left: 5px;
         bottom: 20px;
         background-color: #1c1c1c;
         border-radius: 50%;
@@ -68,15 +65,11 @@ st.markdown("""
         cursor: pointer;
         z-index: 1001;
         box-shadow: 0px 0px 6px #000;
-        transition: transform 0.2s;
         animation: pulse 2s infinite;
-    }
-    .email-fab:hover {
-        transform: scale(1.1);
     }
     .email-popup {
         position: fixed;
-        left: 75px;
+        left: 70px;
         bottom: 30px;
         background-color: #222;
         padding: 16px;
@@ -86,21 +79,29 @@ st.markdown("""
         box-shadow: 0 0 5px #000;
     }
     @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(255,255,255, 0.4); }
-        70% { box-shadow: 0 0 0 10px rgba(255,255,255, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(255,255,255, 0); }
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+    .message {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 10px;
+        margin: 5px 0;
+        animation: fadein 0.5s;
+    }
+    @keyframes fadein {
+        from {opacity: 0; transform: translateY(10px);}
+        to {opacity: 1; transform: translateY(0);}
+    }
+    .avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
     }
     </style>
-""", unsafe_allow_html=True)
-
-# --- Light/Dark Mode Toggle ---
-dark_mode = st.sidebar.toggle("🌙 Dark Mode", value=True)
-if dark_mode:
-    st.markdown("""<style>body { background-color: #000; color: white; }</style>""", unsafe_allow_html=True)
-else:
-    st.markdown("""<style>body { background-color: #fff; color: black; }</style>""", unsafe_allow_html=True)
-
-st.markdown("""
     <div class="scrolling-banner">
         💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
     </div>
@@ -124,18 +125,28 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# --- Chat History ---
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
 
-# --- Input Form at Bottom with autofocus ---
-st.markdown("""<script>document.getElementById('chat_input_box').focus();</script>""", unsafe_allow_html=True)
+# --- Display Chat History ---
+st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
+for speaker, msg in st.session_state.chat_log:
+    align = 'right' if speaker == '👤' else 'left'
+    bg = '#444' if speaker == '👤' else '#222'
+    avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker == "👤" else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
+    st.markdown(f"""
+    <div class='message' style='background-color:{bg}; text-align:{align};'>
+        <img src='{avatar}' class='avatar'/>
+        <div><b>{speaker}</b>: {msg}</div>
+    </div>""", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
+
+# --- Input Form ---
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
-    user_input = col1.text_input("Type your question here...", key="chat_input_box", label_visibility="collapsed")
-    submitted = col2.form_submit_button("➤")
+    user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
+    submitted = col2.form_submit_button("\u27a4")
 
-# --- Chat Logic ---
 if submitted and user_input.strip():
     user_msg = user_input.strip()
     st.session_state.chat_log.append(("👤", user_msg))
@@ -147,7 +158,6 @@ if submitted and user_input.strip():
 
     full_response = df.iloc[idx]['Answer'] if max_sim >= THRESHOLD else "❌ Sorry, I couldn't understand that. Please rephrase."
 
-    # --- TTS First ---
     try:
         tts = gTTS(text=full_response, lang='en')
         audio_file = f"tts_{uuid.uuid4().hex}.mp3"
@@ -169,16 +179,6 @@ if submitted and user_input.strip():
     st.session_state.chat_log.append(("🤖", full_response))
     st.rerun()
 
-# --- Display Chat ---
-st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
-for speaker, msg in st.session_state.chat_log:
-    align = 'right' if speaker == '👤' else 'left'
-    bg = '#444' if speaker == '👤' else '#222'
-    st.markdown(f"<div style='background-color:{bg}; padding:10px; border-radius:10px; text-align:{align}; margin:5px 0;'>"
-                f"<b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
-st.markdown("</div>", unsafe_allow_html=True)
-
-# --- Clear Button ---
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
     st.rerun()
@@ -193,25 +193,38 @@ if st.session_state.get("show_email"):
     with st.container():
         st.markdown("<div class='email-popup'>", unsafe_allow_html=True)
         email = st.text_input("Email Address", key="email_input")
-        if st.button("Send PDF"):
+        file_type = st.selectbox("Choose file format", ["PDF", "TXT", "DOC"], key="file_type")
+        if st.button("Send"):
             if not email or "@" not in email:
                 st.error("Please enter a valid email address.")
             else:
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
-                pdf.set_font("DejaVu", size=12)
-
-                def clean_text(text):
-                    return ''.join(c if ord(c) < 128 else '?' for c in text)
-
-                for speaker, msg in st.session_state.chat_log:
-                    safe_msg = clean_text(f"{speaker}: {msg}")
-                    pdf.multi_cell(0, 10, safe_msg)
-
-                filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
+                filename = f"kcet_chat_{uuid.uuid4().hex}"
+                attachment_path = ""
                 try:
-                    pdf.output(filename)
+                    if file_type == "PDF":
+                        pdf = FPDF()
+                        pdf.add_page()
+                        pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
+                        pdf.set_font("DejaVu", size=12)
+
+                        for speaker, msg in st.session_state.chat_log:
+                            safe_msg = f"{speaker}: {msg}"
+                            pdf.multi_cell(0, 10, safe_msg)
+
+                        attachment_path = f"{filename}.pdf"
+                        pdf.output(attachment_path)
+
+                    elif file_type == "TXT":
+                        attachment_path = f"{filename}.txt"
+                        with open(attachment_path, "w", encoding="utf-8") as f:
+                            for speaker, msg in st.session_state.chat_log:
+                                f.write(f"{speaker}: {msg}\n")
+
+                    elif file_type == "DOC":
+                        attachment_path = f"{filename}.doc"
+                        with open(attachment_path, "w", encoding="utf-8") as f:
+                            for speaker, msg in st.session_state.chat_log:
+                                f.write(f"{speaker}: {msg}\n")
 
                     msg = EmailMessage()
                     msg['Subject'] = "KCET Chat Log"
@@ -219,8 +232,15 @@ if st.session_state.get("show_email"):
                     msg['To'] = email
                     msg.set_content("Here is your chat log with the KCET Assistant.")
 
-                    with open(filename, "rb") as f:
-                        msg.add_attachment(f.read(), maintype='application', subtype='pdf', filename="kcet_chat.pdf")
+                    with open(attachment_path, "rb") as f:
+                        maintype, subtype = ("application", "octet-stream")
+                        if file_type == "PDF":
+                            subtype = "pdf"
+                        elif file_type == "TXT":
+                            subtype = "plain"
+                        elif file_type == "DOC":
+                            subtype = "msword"
+                        msg.add_attachment(f.read(), maintype=maintype, subtype=subtype, filename=os.path.basename(attachment_path))
 
                     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
                         smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
@@ -231,11 +251,10 @@ if st.session_state.get("show_email"):
                 except Exception as e:
                     st.error(f"Email error: {e}")
                 finally:
-                    if os.path.exists(filename):
-                        os.remove(filename)
+                    if os.path.exists(attachment_path):
+                        os.remove(attachment_path)
         st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Floating Action Button UI ---
 st.markdown("""
 <div class="email-fab">
   ✉️
