@@ -105,6 +105,15 @@ vectorizer, vectors, df = load_vector_data()
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
 
+# --- Display Chat ---
+st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
+for speaker, msg in st.session_state.chat_log:
+    align = 'right' if speaker == '👤' else 'left'
+    bg = '#444' if speaker == '👤' else '#222'
+    st.markdown(f"<div style='background-color:{bg}; padding:10px; border-radius:10px; text-align:{align}; margin:5px 0;'>"
+                f"<b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
+
 # --- Input Form at Bottom ---
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
@@ -156,15 +165,6 @@ if submitted and user_input.strip():
 
     st.session_state.chat_log.append(("🤖", full_response))
     st.rerun()
-
-# --- Display Chat ---
-st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
-for speaker, msg in st.session_state.chat_log:
-    align = 'right' if speaker == '👤' else 'left'
-    bg = '#444' if speaker == '👤' else '#222'
-    st.markdown(f"<div style='background-color:{bg}; padding:10px; border-radius:10px; text-align:{align}; margin:5px 0;'>"
-                f"<b>{speaker}</b>: {msg}</div>", unsafe_allow_html=True)
-st.markdown("</div>", unsafe_allow_html=True)
 
 # --- Clear Button ---
 if st.button("🧹 Clear Chat"):
