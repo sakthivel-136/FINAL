@@ -13,13 +13,15 @@ from gtts import gTTS
 import tempfile
 import base64
 
-# --------------------------
-# ✅ Email Credentials
-# --------------------------
+# ==========================
+# 🔐 Email Configuration
+# ==========================
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
-SENDER_PASSWORD = "vwvcwsfffbrvumzh"
+SENDER_PASSWORD = "vwvcwsfffbrvumzh"  # App password
 
-# ✅ Voice output
+# ==========================
+# 🔊 Voice Output
+# ==========================
 def speak_text(text):
     tts = gTTS(text=text, lang='en')
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
@@ -32,7 +34,9 @@ def speak_text(text):
         """
         st.markdown(audio_html, unsafe_allow_html=True)
 
-# ✅ Email sender
+# ==========================
+# 📧 Email Send Function
+# ==========================
 def send_email(recipient_email, subject, body, attachment_path):
     msg = EmailMessage()
     msg['Subject'] = subject
@@ -49,47 +53,62 @@ def send_email(recipient_email, subject, body, attachment_path):
     except Exception as e:
         return str(e)
 
-# --- File config
+# ==========================
+# 🎯 Constants
+# ==========================
 tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
 
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-# ---------------------
-# SIDEBAR STARTS HERE
-# ---------------------
+# ==========================
+# 🧾 Sidebar
+# ==========================
 with st.sidebar:
     st.title("⚙️ Settings")
-
-    # Theme
-    mode = st.radio("Select Theme", ["Dark", "Light"], index=0)
+    mode = st.radio("Theme", ["Dark", "Light"], index=0)
     is_dark = mode == "Dark"
 
-    # Name Input
-    if "user_name" not in st.session_state:
-        st.session_state.user_name = "Shakthivel"
-    st.session_state.user_name = st.text_input("🧑 Your Name", value=st.session_state.user_name)
+    st.session_state.user_name = st.text_input("👤 Your Name", value=st.session_state.get("user_name", "Shakthivel"))
+    user_bubble_color = st.color_picker("🎨 User Bubble", "#d0e8f2")
+    assistant_bubble_color = st.color_picker("🎨 Assistant Bubble", "#d1d1e9")
+    text_color = st.color_picker("🖋️ Text Color", "#000000")
+    export_option = st.checkbox("📤 Enable Export")
 
-    # Bubble Colors
-    st.markdown("🎨 Customize Chat Style")
-    user_bubble_color = st.color_picker("User Bubble Color", "#d0e8f2")
-    assistant_bubble_color = st.color_picker("Assistant Bubble Color", "#d1d1e9")
-    text_color = st.color_picker("Text Color", "#000000")
-
-    # Export toggle
-    export_option = st.checkbox("Enable Export Options")
-
-# Color values for page
+# ==========================
+# 🎨 Theming
+# ==========================
 bg_color = "#111" if is_dark else "#fff"
 txt_color = "white" if is_dark else "black"
 user_name = st.session_state.user_name
 
-# ---------------------
-# HEADER SECTION
-# ---------------------
+# ==========================
+# 🏫 Title + Logo + Banner
+# ==========================
+with open("kcet_logo.png", "rb") as image_file:
+    encoded_img = base64.b64encode(image_file.read()).decode()
+
 st.markdown(f"""
 <style>
+.circle-img {{
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    vertical-align: middle;
+    margin-right: 10px;
+}}
+.title-text {{
+    font-size: 22px;
+    font-weight: bold;
+    color: {txt_color};
+    display: inline-block;
+    vertical-align: middle;
+}}
+.header-container {{
+    text-align: center;
+    margin-top: 10px;
+}}
 .scrolling-banner {{
     overflow: hidden;
     white-space: nowrap;
@@ -109,7 +128,7 @@ st.markdown(f"""
     font-size: 28px;
     color: {txt_color};
     text-align: center;
-    padding: 10px 0 5px 0;
+    padding: 10px 0;
     font-weight: bold;
 }}
 .message {{
@@ -123,8 +142,9 @@ st.markdown(f"""
     to {{opacity: 1; transform: translateY(0);}}
 }}
 </style>
-<div style="text-align:center; color:{txt_color}; font-size:22px; font-weight:bold; margin-top:10px;">
-    KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY
+<div class="header-container">
+    <img src="data:image/png;base64,{encoded_img}" class="circle-img">
+    <span class="title-text">KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</span>
 </div>
 <div class="scrolling-banner">
     💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
@@ -132,9 +152,9 @@ st.markdown(f"""
 <div class="chat-header">KCET Assistant</div>
 """, unsafe_allow_html=True)
 
-# ---------------------
-# LOAD VECTOR DATA
-# ---------------------
+# ==========================
+# 📦 Load Vectorized Data
+# ==========================
 @st.cache_data
 def load_vector_data():
     if os.path.exists(tf_vector_file):
@@ -151,21 +171,23 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# Session memory
+# ==========================
+# 💬 Session State
+# ==========================
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
-# ---------------------
-# CHAT INPUT
-# ---------------------
+# ==========================
+# 🧾 Chat Input
+# ==========================
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
-    user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
+    user_input = col1.text_input("Ask your question...", label_visibility="collapsed")
     submitted = col2.form_submit_button("➤")
 
-# ---------------------
-# CHAT LOGIC
-# ---------------------
+# ==========================
+# 💡 Chat Logic
+# ==========================
 if submitted and user_input.strip():
     st.session_state.chat_log.append((user_name, user_input.strip(), "User"))
     vec = vectorizer.transform([user_input.lower()])
@@ -177,9 +199,9 @@ if submitted and user_input.strip():
     speak_text(base_response)
     st.rerun()
 
-# ---------------------
-# CHAT DISPLAY
-# ---------------------
+# ==========================
+# 🖼️ Chat Display
+# ==========================
 st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if role == "User" else 'left'
@@ -191,67 +213,49 @@ for speaker, msg, role in st.session_state.chat_log:
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ---------------------
-# EXPORT & EMAIL
-# ---------------------
+# ==========================
+# 📤 Export Section
+# ==========================
 if export_option:
     st.subheader("📤 Export Chat")
-    file_type = st.radio("Choose file type", ["PDF", "TXT", "DOC"], index=0)
+    file_type = st.radio("File Type", ["PDF", "TXT", "DOC"], index=0)
     email = st.text_input("📧 Email (optional)", placeholder="example@gmail.com")
 
-    if st.button("Generate and Download"):
+    if st.button("Download / Email"):
         try:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"{user_name.lower()}_chat_{timestamp}.{file_type.lower()}"
-
+            filename = f"{user_name}_chatlog.{file_type.lower()}"
             if file_type == "PDF":
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
                 pdf.set_font("DejaVu", size=12)
-                pdf.cell(200, 10, txt=f"{user_name} - KCET Assistant Chat Log", ln=True, align="C")
-                pdf.ln(5)
+                pdf.cell(200, 10, txt=f"{user_name}'s Chat Log", ln=True, align="C")
                 for speaker, msg, role in st.session_state.chat_log:
-                    msg_clean = msg.replace('\xa0', ' ')
-                    pdf.multi_cell(0, 10, f"{speaker} ({role}): {msg_clean}")
-                file_data = pdf.output(dest='S').encode('latin-1')
-                download_data = file_data
+                    pdf.multi_cell(0, 10, f"{speaker} ({role}): {msg}")
+                pdf_data = pdf.output(dest='S').encode('latin-1')
                 mime = "application/pdf"
+                data = pdf_data
             else:
-                text_data = ""
-                for speaker, msg, role in st.session_state.chat_log:
-                    msg_clean = msg.replace('\xa0', ' ')
-                    text_data += f"{speaker} ({role}): {msg_clean}\n"
-                file_data = text_data.encode("utf-8", "ignore")
-                download_data = file_data
+                text = "\n".join([f"{s} ({r}): {m}" for s, m, r in st.session_state.chat_log])
+                data = text.encode("utf-8", "ignore")
                 mime = "application/msword" if file_type == "DOC" else "text/plain"
 
-            with open(filename, "wb") as f:
-                f.write(download_data)
-
-            st.download_button(
-                label=f"📥 Download {file_type}",
-                data=download_data,
-                file_name=filename,
-                mime=mime
-            )
+            st.download_button("📥 Download", data=data, file_name=filename, mime=mime)
 
             if email and "@" in email:
-                subject = f"{user_name} - KCET Chat Log"
-                body = "Please find the attached KCET Assistant chat log."
-                result = send_email(email, subject, body, filename)
-                if result is True:
-                    st.success("✅ Email sent successfully!")
+                with open(filename, "wb") as f:
+                    f.write(data)
+                sent = send_email(email, f"{user_name} Chat Log", "Attached is your chat log.", filename)
+                if sent is True:
+                    st.success("✅ Email sent!")
                 else:
-                    st.error(f"❌ Failed to send email: {result}")
-            elif email:
-                st.warning("⚠️ Invalid email address.")
+                    st.error(f"❌ Email error: {sent}")
         except Exception as e:
-            st.error(f"❌ Error: {e}")
+            st.error(f"❌ Export failed: {e}")
 
-# ---------------------
-# CLEAR CHAT
-# ---------------------
+# ==========================
+# 🧹 Clear Chat
+# ==========================
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
     st.rerun()
