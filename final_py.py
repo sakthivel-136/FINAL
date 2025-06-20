@@ -16,7 +16,7 @@ tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
 sender_email = "kamarajengg.edu.in@gmail.com"
-sender_password = "vwvc wsff fbrv umzh"  # 🔑 Your app password here
+sender_password = "vwvc wsff fbrv umzh"  # 🔑 Use app password
 
 # --- Streamlit Page ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
@@ -150,19 +150,17 @@ if export_option:
                 for speaker, msg, role in st.session_state.chat_log:
                     msg_clean = msg.replace('\xa0', ' ')
                     pdf.multi_cell(0, 10, f"{speaker} ({role}): {msg_clean}")
-                pdf_buffer = io.BytesIO()
-                pdf.output(pdf_buffer)
-                file_data = pdf_buffer.getvalue()
+                file_data = pdf.output(dest='S').encode('latin-1')  # ✅ FIXED
                 mime = "application/pdf"
             else:
                 text_data = ""
                 for speaker, msg, role in st.session_state.chat_log:
                     msg_clean = msg.replace('\xa0', ' ')
                     text_data += f"{speaker} ({role}): {msg_clean}\n"
-                file_data = text_data
+                file_data = text_data.encode("utf-8")
                 mime = "text/plain" if file_type == "TXT" else "application/msword"
 
-            # 🎯 Download to laptop
+            # ✅ Download button
             st.download_button(
                 label=f"📥 Download {file_type}",
                 data=file_data,
@@ -170,7 +168,7 @@ if export_option:
                 mime=mime
             )
 
-            # 📧 Send Email if email is given
+            # 📧 Send Email if email is provided
             if email and "@" in email:
                 msg = EmailMessage()
                 msg['Subject'] = "KCET Assistant Chat Log"
@@ -178,8 +176,6 @@ if export_option:
                 msg['To'] = email
                 msg.set_content("Please find the KCET Assistant chat log attached.")
 
-                if isinstance(file_data, str):
-                    file_data = file_data.encode("utf-8")
                 msg.add_attachment(file_data, maintype="application", subtype=mime.split("/")[-1], filename=safe_filename)
 
                 with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
