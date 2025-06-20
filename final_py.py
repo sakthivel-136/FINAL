@@ -14,7 +14,7 @@ from fpdf import FPDF
 # ✅ Email Credentials
 # --------------------------
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
-SENDER_PASSWORD = ""vwvc wsff fbrv umzh  # Use Gmail App Password only
+SENDER_PASSWORD = "vwvc wsff fbrv umzh"  # Use Gmail App Password only
 
 # ✅ Reusable Email Function
 def send_email(recipient_email, subject, body, attachment_path):
