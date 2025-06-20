@@ -14,8 +14,8 @@ import tempfile
 import base64
 
 # =============== Secure Credentials ===============
-SENDER_EMAIL = st.secrets["EMAIL"]
-SENDER_PASSWORD = st.secrets["EMAIL_PASSWORD"]
+SENDER_EMAIL =("kamarajengg.edu.in@gmail.com")
+SENDER_PASSWORD =("vwvc wsff fbrv umzh ")
 
 # =============== Voice Output ===============
 def speak_text(text):
