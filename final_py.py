@@ -3,7 +3,6 @@ import pandas as pd
 import pickle
 import os
 import uuid
-import io
 import smtplib
 from datetime import datetime
 from email.message import EmailMessage
@@ -16,7 +15,7 @@ tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
 sender_email = "kamarajengg.edu.in@gmail.com"
-sender_password = "vwvc wsff fbrv umzh"  # 🔑 Use your Gmail App Password
+sender_password = "vwvc wsff fbrv umzh"  # Replace with your App Password
 
 # --- Streamlit Page ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
@@ -90,11 +89,11 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# --- Session State Init ---
+# --- Chat State ---
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
-# --- Input Form ---
+# --- Chat Input ---
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
@@ -103,16 +102,12 @@ with st.form("chat_form", clear_on_submit=True):
 # --- Chat Logic ---
 if submitted and user_input.strip():
     st.session_state.chat_log.append(("You", user_input.strip(), "User"))
-
     vec = vectorizer.transform([user_input.lower()])
     similarity = cosine_similarity(vec, vectors)
     max_sim = similarity.max()
     idx = similarity.argmax()
-
     base_response = df.iloc[idx]['Answer'] if max_sim >= threshold else "❌ Sorry, I couldn't understand that. Please rephrase."
-    full_response = base_response
-
-    st.session_state.chat_log.append(("KCET Assistant", full_response, "Assistant"))
+    st.session_state.chat_log.append(("KCET Assistant", base_response, "Assistant"))
     st.rerun()
 
 # --- Display Chat ---
@@ -128,7 +123,7 @@ for speaker, msg, role in st.session_state.chat_log:
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Export + Download + Email ---
+# --- Export + Email ---
 if export_option:
     st.subheader("📤 Export Options")
     file_type = st.radio("Choose file type", ["PDF", "TXT", "DOC"], index=0)
@@ -151,24 +146,28 @@ if export_option:
                     msg_clean = msg.replace('\xa0', ' ')
                     pdf.multi_cell(0, 10, f"{speaker} ({role}): {msg_clean}")
                 file_data = pdf.output(dest='S').encode('latin-1')
+                download_data = file_data
                 mime = "application/pdf"
+                subtype = "pdf"
             else:
                 text_data = ""
                 for speaker, msg, role in st.session_state.chat_log:
                     msg_clean = msg.replace('\xa0', ' ')
                     text_data += f"{speaker} ({role}): {msg_clean}\n"
-                file_data = text_data.encode("utf-8")
-                mime = "text/plain" if file_type == "TXT" else "application/msword"
+                file_data = text_data  # string, for email
+                download_data = text_data.encode("utf-8")  # bytes, for download
+                mime = "application/msword" if file_type == "DOC" else "text/plain"
+                subtype = "msword" if file_type == "DOC" else "plain"
 
-            # ✅ Download button
+            # Download
             st.download_button(
                 label=f"📥 Download {file_type}",
-                data=file_data,
+                data=download_data,
                 file_name=filename,
                 mime=mime
             )
 
-            # ✅ Email Attachment
+            # Email if valid
             if email and "@" in email:
                 msg = EmailMessage()
                 msg['Subject'] = "KCET Assistant Chat Log"
@@ -176,14 +175,12 @@ if export_option:
                 msg['To'] = email
                 msg.set_content("Please find the KCET Assistant chat log attached.")
 
-                subtype = mime.split("/")[-1]
-
-                if subtype in ["plain", "msword"]:
-                    msg.add_attachment(file_data, maintype="application", subtype=subtype,
-                                       filename=safe_filename, charset="utf-8")
-                else:
+                if file_type == "PDF":
                     msg.add_attachment(file_data, maintype="application", subtype=subtype,
                                        filename=safe_filename)
+                else:
+                    msg.add_attachment(file_data, maintype="application", subtype=subtype,
+                                       filename=safe_filename, charset="utf-8")
 
                 with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
                     smtp.login(sender_email, sender_password)
