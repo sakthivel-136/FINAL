@@ -34,18 +34,23 @@ with st.sidebar:
     st.title("⚙️ Settings")
     mode = st.radio("Theme", ["Dark", "Light"], index=0)
     is_dark = mode == "Dark"
+
     st.session_state.user_name = st.text_input("👤 Your Name", value=st.session_state.get("user_name", "Shakthivel"))
 
     st.session_state.user_bubble_color = st.color_picker("🎨 User Bubble", value=st.session_state.get("user_bubble_color", "#d0e8f2"))
     st.session_state.assistant_bubble_color = st.color_picker("🎨 Assistant Bubble", value=st.session_state.get("assistant_bubble_color", "#d1d1e9"))
 
+    # Fix: Color picker with session state and rerun
     if "txt_color" not in st.session_state:
         st.session_state.txt_color = "#000000"
 
-    txt_color = st.color_picker("🖋️ Text Color", value=st.session_state.txt_color)
-    if txt_color != st.session_state.txt_color:
-        st.session_state.txt_color = txt_color
-        st.experimental_rerun()
+    new_color = st.color_picker("🖋️ Text Color", value=st.session_state.txt_color)
+
+    if new_color != st.session_state.txt_color:
+        st.session_state.txt_color = new_color
+        st.session_state.color_changed = True
+    else:
+        st.session_state.color_changed = False
 
     export_option = st.checkbox("📤 Enable Export")
 
@@ -140,7 +145,7 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# ===================== Session Init =====================
+# ===================== Chat State =====================
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
@@ -161,7 +166,7 @@ if submitted and user_input.strip():
     speak_text(response)
     st.rerun()
 
-# ===================== Chat Display =====================
+# ===================== Display Chat =====================
 st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if role == "User" else 'left'
@@ -172,10 +177,11 @@ for speaker, msg, role in st.session_state.chat_log:
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ===================== Export =====================
+# ===================== Export Chat =====================
 if export_option:
     st.subheader("📤 Export Chat")
     file_type = st.radio("File Type", ["PDF", "TXT", "DOC"], index=0)
+
     if st.button("Download"):
         try:
             filename = f"{user_name}_chatlog.{file_type.lower()}"
@@ -206,7 +212,11 @@ if export_option:
         except Exception as e:
             st.error(f"❌ Export failed: {e}")
 
-# ===================== Clear =====================
+# ===================== Clear Chat =====================
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
     st.rerun()
+
+# ========== Rerun after color change ==========
+if st.session_state.get("color_changed"):
+    st.experimental_rerun()
