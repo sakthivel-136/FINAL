@@ -9,7 +9,7 @@ from gtts import gTTS
 import tempfile
 import base64
 
-# =============== Voice Output ===============
+# ===================== Voice Output =====================
 def speak_text(text):
     tts = gTTS(text=text, lang='en')
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
@@ -22,29 +22,38 @@ def speak_text(text):
         """
         st.markdown(audio_html, unsafe_allow_html=True)
 
-# =============== Constants ===============
+# ===================== Constants =====================
 tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
 
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-# =============== Sidebar ===============
+# ===================== Sidebar =====================
 with st.sidebar:
     st.title("⚙️ Settings")
     mode = st.radio("Theme", ["Dark", "Light"], index=0)
     is_dark = mode == "Dark"
     st.session_state.user_name = st.text_input("👤 Your Name", value=st.session_state.get("user_name", "Shakthivel"))
-    user_bubble_color = st.color_picker("🎨 User Bubble", "#d0e8f2")
-    assistant_bubble_color = st.color_picker("🎨 Assistant Bubble", "#d1d1e9")
-    txt_color = st.color_picker("🖋️ Text Color", "#000000")
+
+    st.session_state.user_bubble_color = st.color_picker("🎨 User Bubble", value=st.session_state.get("user_bubble_color", "#d0e8f2"))
+    st.session_state.assistant_bubble_color = st.color_picker("🎨 Assistant Bubble", value=st.session_state.get("assistant_bubble_color", "#d1d1e9"))
+
+    if "txt_color" not in st.session_state:
+        st.session_state.txt_color = "#000000"
+
+    txt_color = st.color_picker("🖋️ Text Color", value=st.session_state.txt_color)
+    if txt_color != st.session_state.txt_color:
+        st.session_state.txt_color = txt_color
+        st.experimental_rerun()
+
     export_option = st.checkbox("📤 Enable Export")
 
 bg_color = "#111" if is_dark else "#fff"
-final_txt_color = "white" if is_dark else txt_color  # ✅ Fixed logic
+final_txt_color = "white" if is_dark else st.session_state.txt_color
 user_name = st.session_state.user_name
 
-# =============== Header ===============
+# ===================== Header =====================
 try:
     with open("kcet_logo.png", "rb") as image_file:
         encoded_img = base64.b64encode(image_file.read()).decode()
@@ -114,7 +123,7 @@ st.markdown(f"""
 <div class="chat-header">KCET Assistant</div>
 """, unsafe_allow_html=True)
 
-# =============== Load Vector Data ===============
+# ===================== Load Vector Data =====================
 @st.cache_data
 def load_vector_data():
     if os.path.exists(tf_vector_file):
@@ -131,11 +140,11 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# =============== Session State ===============
+# ===================== Session Init =====================
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
-# =============== Chat Form ===============
+# ===================== Chat Form =====================
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Ask your question...", label_visibility="collapsed")
@@ -147,27 +156,26 @@ if submitted and user_input.strip():
     similarity = cosine_similarity(vec, vectors)
     max_sim = similarity.max()
     idx = similarity.argmax()
-    base_response = df.iloc[idx]['Answer'] if max_sim >= threshold else "❌ Sorry, I couldn't understand that. Please rephrase."
-    st.session_state.chat_log.append(("KCET Assistant", base_response, "Assistant"))
-    speak_text(base_response)
+    response = df.iloc[idx]['Answer'] if max_sim >= threshold else "❌ Sorry, I couldn't understand that. Please rephrase."
+    st.session_state.chat_log.append(("KCET Assistant", response, "Assistant"))
+    speak_text(response)
     st.rerun()
 
-# =============== Chat Display ===============
+# ===================== Chat Display =====================
 st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if role == "User" else 'left'
-    bg = user_bubble_color if role == "User" else assistant_bubble_color
+    bg = st.session_state.user_bubble_color if role == "User" else st.session_state.assistant_bubble_color
     st.markdown(f"""
     <div class='message' style='background-color:{bg}; text-align:{align}; color:{final_txt_color};'>
         <div><b>{speaker}</b> ({role}): {msg.replace('\xa0', ' ')}</div>
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# =============== Export Chat ===============
+# ===================== Export =====================
 if export_option:
     st.subheader("📤 Export Chat")
     file_type = st.radio("File Type", ["PDF", "TXT", "DOC"], index=0)
-
     if st.button("Download"):
         try:
             filename = f"{user_name}_chatlog.{file_type.lower()}"
@@ -198,7 +206,7 @@ if export_option:
         except Exception as e:
             st.error(f"❌ Export failed: {e}")
 
-# =============== Clear Chat ===============
+# ===================== Clear =====================
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
     st.rerun()
