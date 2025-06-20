@@ -32,7 +32,6 @@ with st.sidebar:
     st.title("⚙️ Settings")
     mode = st.radio("Select Theme", ["Dark", "Light"], index=0)
     export_option = st.checkbox("Enable Export Options")
-    history_toggle = st.checkbox("Show Chat History")
 
 dark_mode = mode == "Dark"
 background = "#111" if dark_mode else "#fff"
@@ -108,10 +107,24 @@ vectorizer, vectors, df = load_vector_data()
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
 
+# --- Input Form ---
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
     submitted = col2.form_submit_button("➤")
+
+# --- Display Chat ---
+st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
+for speaker, msg in st.session_state.chat_log:
+    align = 'right' if speaker == '👤' else 'left'
+    bg = user_bg if speaker == '👤' else bot_bg
+    avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker == "👤" else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
+    st.markdown(f"""
+    <div class='message' style='background-color:{bg}; text-align:{align}; color:{text_color};'>
+        <img src='{avatar}' class='avatar'/>
+        <div><b>{speaker}</b>: {msg}</div>
+    </div>""", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
 if submitted and user_input.strip():
     st.session_state.chat_log.append(("👤", user_input.strip()))
@@ -141,18 +154,6 @@ if submitted and user_input.strip():
 
     st.session_state.chat_log.append(("🧠", full_response))
     st.rerun()
-
-if history_toggle:
-    st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
-    for speaker, msg in st.session_state.chat_log:
-        align = 'right' if speaker == '👤' else 'left'
-        bg = user_bg if speaker == '👤' else bot_bg
-        avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker == "👤" else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
-        st.markdown(f"""
-        <div class='message' style='background-color:{bg}; text-align:{align}; color:{text_color};'>
-            <img src='{avatar}' class='avatar'/>
-            <div><b>{speaker}</b>: {msg}</div>
-        </div>""", unsafe_allow_html=True)
 
 if export_option:
     st.subheader("📤 Export Chat")
