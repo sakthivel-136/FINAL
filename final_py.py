@@ -31,7 +31,7 @@ def load_profile():
             return json.load(f)
     return {
         "name": "Guest",
-        "avatar": "https://cdn-icons-png.flaticon.com/512/2922/2922506.png",
+        "avatar": "",
         "role": "Student",
         "color": "#d0e8f2",
         "text_color": "#000"
@@ -47,7 +47,6 @@ if "user_profile" not in st.session_state:
 
 # --- Sidebar ---
 with st.sidebar:
-    st.image(st.session_state.user_profile["avatar"], width=100)
     st.title("⚙️ Settings")
     st.text_input("Your Name", value=st.session_state.user_profile["name"], key="user_name")
     uploaded_avatar = st.file_uploader("Upload Avatar", type=["png", "jpg", "jpeg"])
@@ -98,9 +97,6 @@ st.markdown(f"""
     font-weight: bold;
 }}
 .message {{
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
     padding: 10px;
     border-radius: 10px;
     margin: 5px 0;
@@ -109,11 +105,6 @@ st.markdown(f"""
 @keyframes fadein {{
     from {{opacity: 0; transform: translateY(10px);}}
     to {{opacity: 1; transform: translateY(0);}}
-}}
-.avatar {{
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
 }}
 </style>
 <div class="scrolling-banner">
@@ -173,17 +164,11 @@ if submitted and user_input.strip():
 st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if speaker == st.session_state.user_profile["name"] else 'left'
-    avatar = st.session_state.user_profile["avatar"] if speaker == st.session_state.user_profile["name"] else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
-    if speaker == st.session_state.user_profile["name"]:
-        bg = st.session_state.user_profile["color"]
-        txt = st.session_state.user_profile["text_color"]
-    else:
-        bg = "#d1d1e9"
-        txt = "#000"
+    bg = st.session_state.user_profile["color"] if speaker == st.session_state.user_profile["name"] else "#d1d1e9"
+    txt = st.session_state.user_profile["text_color"] if speaker == st.session_state.user_profile["name"] else "#000"
     msg_clean = msg.replace('\xa0', ' ')
     st.markdown(f"""
     <div class='message' style='background-color:{bg}; text-align:{align}; color:{txt};'>
-        <img src='{avatar}' class='avatar'/>
         <div><b>{speaker}</b> ({role}): {msg_clean}</div>
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
@@ -218,7 +203,6 @@ if export_option:
                 msg['From'] = sender_email
                 msg['To'] = email
                 msg.set_content("Here is your chat log with the KCET Assistant.".encode('utf-8', 'ignore').decode('utf-8'))
-
 
                 with open(filename, "rb") as f:
                     msg.add_attachment(f.read(), maintype="application", subtype="pdf", filename=filename)
