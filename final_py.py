@@ -22,8 +22,8 @@ except ImportError:
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
-SENDER_EMAIL = ("kamarajengg.edu.in@Gmail.com ")
-SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
+SENDER_EMAIL = "your_email@gmail.com"
+SENDER_PASSWORD = "your_app_password"
 
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
@@ -135,7 +135,7 @@ if submitted and user_input.strip():
 
     full_response = df.iloc[idx]['Answer'] if max_sim >= THRESHOLD else "❌ Sorry, I couldn't understand that. Please rephrase."
 
-    try:
+        try:
         tts = gTTS(text=full_response, lang='en')
         audio_file = f"tts_{uuid.uuid4().hex}.mp3"
         tts.save(audio_file)
@@ -144,12 +144,16 @@ if submitted and user_input.strip():
         st.audio(audio_bytes, format="audio/mp3", start_time=0)
 
         if AudioSegment:
-            duration = AudioSegment.from_file(audio_file).duration_seconds
-            time.sleep(math.ceil(duration))
+            try:
+                duration = AudioSegment.from_file(audio_file).duration_seconds
+                time.sleep(min(duration, 30))  # sleep only if duration available
+            except Exception as e:
+                st.warning(f"Audio duration not detected: {e}")
+        else:
+            st.warning("AudioSegment not available or ffmpeg missing.")
 
         os.remove(audio_file)
-    except Exception as e:
-        st.error(f"TTS error: {e}")
+
 
     st.session_state.chat_log.append(("🧠", full_response))
     st.rerun()
