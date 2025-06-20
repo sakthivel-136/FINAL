@@ -39,11 +39,11 @@ with st.sidebar:
     st.session_state.user_name = st.text_input("👤 Your Name", value=st.session_state.get("user_name", "Shakthivel"))
     user_bubble_color = st.color_picker("🎨 User Bubble", "#d0e8f2")
     assistant_bubble_color = st.color_picker("🎨 Assistant Bubble", "#d1d1e9")
-    txt_color = st.color_picker("🖋️ Text Color", "#000000")
+    txt_color = st.color_picker("🖋️ Text Color", "#000000")  # <-- fixed
     export_option = st.checkbox("📤 Enable Export")
 
 bg_color = "#111" if is_dark else "#fff"
-text_color = "white" if is_dark else "black"
+txt_color = "white" if is_dark else txt_color  # use white text in dark mode
 user_name = st.session_state.user_name
 
 # =============== Header ===============
@@ -65,7 +65,7 @@ st.markdown(f"""
 .title-text {{
     font-size: 22px;
     font-weight: bold;
-    color: {text_color};
+    color: {txt_color};
     display: inline-block;
     vertical-align: middle;
 }}
@@ -90,7 +90,7 @@ st.markdown(f"""
 }}
 .chat-header {{
     font-size: 28px;
-    color: {text_color};
+    color: {txt_color};
     text-align: center;
     padding: 10px 0;
     font-weight: bold;
@@ -164,12 +164,12 @@ for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if role == "User" else 'left'
     bg = user_bubble_color if role == "User" else assistant_bubble_color
     st.markdown(f"""
-    <div class='message' style='background-color:{bg}; text-align:{align}; color:{text_color};'>
+    <div class='message' style='background-color:{bg}; text-align:{align}; color:{txt_color};'>
         <div><b>{speaker}</b> ({role}): {msg.replace('\xa0', ' ')}</div>
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# =============== Export Chat (No Email) ===============
+# =============== Export Chat (no email) ===============
 if export_option:
     st.subheader("📤 Export Chat")
     file_type = st.radio("File Type", ["PDF", "TXT", "DOC"], index=0)
