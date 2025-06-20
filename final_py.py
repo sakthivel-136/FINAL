@@ -14,15 +14,14 @@ from fpdf import FPDF
 # ✅ Email Credentials
 # --------------------------
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
-SENDER_PASSWORD = "vwvcwsfffbrvumzh"# 🔐 Use Gmail App Password
+SENDER_PASSWORD = "vwvcwsfffbrvumzh"  # Use your app password
 
-# ✅ Reusable Email Function (cleaned)
 def send_email(recipient_email, subject, body, attachment_path):
     msg = EmailMessage()
     msg['Subject'] = subject
     msg['From'] = SENDER_EMAIL
     msg['To'] = recipient_email
-    msg.set_content(body.replace('\xa0', ' '))  # Clean any non-breaking space
+    msg.set_content(body.replace('\xa0', ' '))
 
     try:
         with open(attachment_path, 'rb') as f:
@@ -49,17 +48,23 @@ threshold = 0.6
 
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-# --- Sidebar ---
+# --- Sidebar with Settings ---
 with st.sidebar:
     st.title("⚙️ Settings")
     mode = st.radio("Select Theme", ["Dark", "Light"], index=0)
     export_option = st.checkbox("Enable Export Options")
 
+    # ✅ Username input
+    if "user_name" not in st.session_state:
+        st.session_state.user_name = "Shakthivel"
+    st.session_state.user_name = st.text_input("🧑 Your Name", value=st.session_state.user_name)
+
+user_name = st.session_state.user_name
 is_dark = mode == "Dark"
 bg_color = "#111" if is_dark else "#fff"
 txt_color = "white" if is_dark else "black"
 
-# --- CSS and Banner ---
+# --- CSS + Title + Banner ---
 st.markdown(f"""
 <style>
 .scrolling-banner {{
@@ -102,10 +107,9 @@ st.markdown(f"""
     💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
 </div>
 <div class="chat-header">KCET Assistant</div>
-
 """, unsafe_allow_html=True)
 
-# --- Load Data ---
+# --- Load Vectorized Q&A Data ---
 @st.cache_data
 def load_vector_data():
     if os.path.exists(tf_vector_file):
@@ -122,7 +126,7 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# --- Chat State ---
+# --- Init Chat State ---
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
@@ -134,7 +138,7 @@ with st.form("chat_form", clear_on_submit=True):
 
 # --- Chat Logic ---
 if submitted and user_input.strip():
-    st.session_state.chat_log.append(("You", user_input.strip(), "User"))
+    st.session_state.chat_log.append((user_name, user_input.strip(), "User"))
     vec = vectorizer.transform([user_input.lower()])
     similarity = cosine_similarity(vec, vectors)
     max_sim = similarity.max()
@@ -146,17 +150,16 @@ if submitted and user_input.strip():
 # --- Display Chat ---
 st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg, role in st.session_state.chat_log:
-    align = 'right' if speaker == "You" else 'left'
-    bg = "#d0e8f2" if speaker == "You" else "#d1d1e9"
-    txt = "#000"
+    align = 'right' if role == "User" else 'left'
+    bg = "#d0e8f2" if role == "User" else "#d1d1e9"
     msg_clean = msg.replace('\xa0', ' ')
     st.markdown(f"""
-    <div class='message' style='background-color:{bg}; text-align:{align}; color:{txt};'>
+    <div class='message' style='background-color:{bg}; text-align:{align}; color:#000;'>
         <div><b>{speaker}</b> ({role}): {msg_clean}</div>
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Export Section ---
+# --- Export + Email Section ---
 if export_option:
     st.subheader("📤 Export Chat")
     file_type = st.radio("Choose file type", ["PDF", "TXT", "DOC"], index=0)
@@ -165,14 +168,14 @@ if export_option:
     if st.button("Generate and Download"):
         try:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"kcet_chat_{timestamp}.{file_type.lower()}"
+            filename = f"{user_name.lower()}_chat_{timestamp}.{file_type.lower()}"
 
             if file_type == "PDF":
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
                 pdf.set_font("DejaVu", size=12)
-                pdf.cell(200, 10, txt="KCET Assistant Chat Log", ln=True, align="C")
+                pdf.cell(200, 10, txt=f"{user_name} - KCET Assistant Chat Log", ln=True, align="C")
                 pdf.ln(5)
                 for speaker, msg, role in st.session_state.chat_log:
                     msg_clean = msg.replace('\xa0', ' ')
@@ -200,7 +203,7 @@ if export_option:
             )
 
             if email and "@" in email:
-                subject = "KCET Assistant Chat Log"
+                subject = f"{user_name} - KCET Chat Log"
                 body = "Please find the attached KCET Assistant chat log."
                 result = send_email(email, subject, body, filename)
                 if result is True:
@@ -212,7 +215,7 @@ if export_option:
         except Exception as e:
             st.error(f"❌ Error: {e}")
 
-# --- Clear Chat ---
+# --- Clear Chat Button ---
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
     st.rerun()
