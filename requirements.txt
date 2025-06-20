@@ -12,4 +12,6 @@ uuid
 secure-smtplib
 pydub
 gtts
-
+email-validator
+python-magic
+python-docx
