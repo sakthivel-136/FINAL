@@ -217,7 +217,8 @@ if export_option:
                 msg['Subject'] = "KCET Chat Log"
                 msg['From'] = sender_email
                 msg['To'] = email
-                msg.set_content("Here is your chat log with the KCET Assistant.")
+                msg.set_content("Here is your chat log with the KCET Assistant.".encode('utf-8', 'ignore').decode('utf-8'))
+
 
                 with open(filename, "rb") as f:
                     msg.add_attachment(f.read(), maintype="application", subtype="pdf", filename=filename)
