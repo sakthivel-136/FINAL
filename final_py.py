@@ -146,7 +146,7 @@ with st.form("chat_form", clear_on_submit=True):
 
 # --- Chat Logic ---
 if submitted and user_input.strip():
-    st.session_state.chat_log.append((user_name, user_input.strip(), "User"))
+    st.session_state.chat_log.append((user_name, ))
     vec = vectorizer.transform([user_input.lower()])
     similarity = cosine_similarity(vec, vectors)
     max_sim = similarity.max()
