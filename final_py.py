@@ -4,9 +4,7 @@ import pickle
 import os
 import uuid
 import smtplib
-import datetime
-import time
-import re
+from datetime import datetime
 from email.message import EmailMessage
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -14,17 +12,11 @@ from fpdf import FPDF
 from gtts import gTTS
 import tempfile
 import base64
-import streamlit.components.v1 as components
 
-# ==========================
-# 🔐 Email Configuration
-# ==========================
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
-SENDER_PASSWORD = "vwvcwsfffbrvumzh"
+SENDER_PASSWORD = "vwvcwsfffbrvumzh"  # App password
 
-# ==========================
-# 🔊 Voice Output
-# ==========================
+# ================= Voice Output =================
 def speak_text(text):
     tts = gTTS(text=text, lang='en')
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
@@ -37,9 +29,7 @@ def speak_text(text):
         """
         st.markdown(audio_html, unsafe_allow_html=True)
 
-# ==========================
-# 📧 Email Send Function
-# ==========================
+# ================= Email Sender =================
 def send_email(recipient_email, subject, body, attachment_path):
     msg = EmailMessage()
     msg['Subject'] = subject
@@ -56,61 +46,83 @@ def send_email(recipient_email, subject, body, attachment_path):
     except Exception as e:
         return str(e)
 
-# ==========================
-# 🎯 Constants
-# ==========================
+# ================= Constants =================
 tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
+
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-# ✨ Auto Dark/Light Mode Based on Time
-current_hour = datetime.datetime.now().hour
-if 6 <= current_hour < 18:
-    is_dark = False
-else:
-    is_dark = True
-
-# ✨ Add Theme Presets
+# ================= Sidebar =================
 with st.sidebar:
     st.title("⚙️ Settings")
-    st.subheader("🎨 Theme Presets")
-    theme = st.radio("Choose a style", ["Classic", "Neon", "Elegant"])
+    mode = st.radio("Theme", ["Dark", "Light"], index=0)
+    is_dark = mode == "Dark"
     st.session_state.user_name = st.text_input("👤 Your Name", value=st.session_state.get("user_name", "Shakthivel"))
+    user_bubble_color = st.color_picker("🎨 User Bubble", "#d0e8f2")
+    assistant_bubble_color = st.color_picker("🎨 Assistant Bubble", "#d1d1e9")
+    text_color = st.color_picker("🖋️ Text Color", "#000000")
     export_option = st.checkbox("📤 Enable Export")
 
-if theme == "Neon":
-    user_bubble_color = "#39ff14"
-    assistant_bubble_color = "#ff00ff"
-    text_color = "#000"
-elif theme == "Elegant":
-    user_bubble_color = "#f4f4f4"
-    assistant_bubble_color = "#cccccc"
-    text_color = "#222"
-else:
-    user_bubble_color = "#d0e8f2"
-    assistant_bubble_color = "#d1d1e9"
-    text_color = "#000"
 bg_color = "#111" if is_dark else "#fff"
 txt_color = "white" if is_dark else "black"
 user_name = st.session_state.user_name
 
-# ==========================
-# 🏫 Title + Logo + Banner
-# ==========================
 with open("kcet_logo.png", "rb") as image_file:
     encoded_img = base64.b64encode(image_file.read()).decode()
 
 st.markdown(f"""
 <style>
-.circle-img {{ border-radius: 50%; width: 50px; height: 50px; vertical-align: middle; margin-right: 10px; }}
-.title-text {{ font-size: 22px; font-weight: bold; color: {txt_color}; display: inline-block; vertical-align: middle; }}
-.header-container {{ text-align: center; margin-top: 10px; }}
-.scrolling-banner {{ overflow: hidden; white-space: nowrap; animation: scroll-left 20s linear infinite; color: gold; background-color: {bg_color}; padding: 8px; font-weight: bold; font-size: 16px; text-align: center; }}
-@keyframes scroll-left {{ 0% {{ transform: translateX(100%); }} 100% {{ transform: translateX(-100%); }} }}
-.chat-header {{ font-size: 28px; color: {txt_color}; text-align: center; padding: 10px 0; font-weight: bold; }}
-.message {{ padding: 10px; border-radius: 10px; margin: 5px 0; animation: fadein 0.5s; }}
-@keyframes fadein {{ from {{opacity: 0; transform: translateY(10px);}} to {{opacity: 1; transform: translateY(0);}} }}
+.circle-img {{
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    vertical-align: middle;
+    margin-right: 10px;
+}}
+.title-text {{
+    font-size: 22px;
+    font-weight: bold;
+    color: {txt_color};
+    display: inline-block;
+    vertical-align: middle;
+}}
+.header-container {{
+    text-align: center;
+    margin-top: 10px;
+}}
+.scrolling-banner {{
+    overflow: hidden;
+    white-space: nowrap;
+    animation: scroll-left 20s linear infinite;
+    color: gold;
+    background-color: {bg_color};
+    padding: 8px;
+    font-weight: bold;
+    font-size: 16px;
+    text-align: center;
+}}
+@keyframes scroll-left {{
+    0% {{ transform: translateX(100%); }}
+    100% {{ transform: translateX(-100%); }}
+}}
+.chat-header {{
+    font-size: 28px;
+    color: {txt_color};
+    text-align: center;
+    padding: 10px 0;
+    font-weight: bold;
+}}
+.message {{
+    padding: 10px;
+    border-radius: 10px;
+    margin: 5px 0;
+    animation: fadein 0.5s;
+}}
+@keyframes fadein {{
+    from {{opacity: 0; transform: translateY(10px);}}
+    to {{opacity: 1; transform: translateY(0);}}
+}}
 </style>
 <div class="header-container">
     <img src="data:image/png;base64,{encoded_img}" class="circle-img">
@@ -148,19 +160,6 @@ with st.form("chat_form", clear_on_submit=True):
 
 if submitted and user_input.strip():
     st.session_state.chat_log.append((user_name, user_input.strip(), "User"))
-    components.html("""
-        <style>
-            .typing {
-                font-style: italic;
-                color: gray;
-                animation: blink 1s step-start infinite;
-            }
-            @keyframes blink {
-                50% { opacity: 0; }
-            }
-        </style>
-        <div class='typing'>KCET Assistant is typing...</div>
-    """, height=40)
     vec = vectorizer.transform([user_input.lower()])
     similarity = cosine_similarity(vec, vectors)
     max_sim = similarity.max()
@@ -199,7 +198,7 @@ if export_option:
                 pdf.cell(160, 10, txt="KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY", ln=True, align="L")
                 pdf.set_font("Arial", '', 11)
                 pdf.set_xy(10, 25)
-                banner_text = "\U0001f4bc 100% Placement | \U0001f469‍\U0001f3eb Top Faculty | \U0001f393 Research Driven | \U0001f9e0 Hackathons | \U0001f91d Industry Collaboration"
+                banner_text = "💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration"
                 pdf.multi_cell(0, 8, banner_text)
                 pdf.line(10, 38, 200, 38)
                 pdf.set_xy(10, 45)
@@ -217,7 +216,7 @@ if export_option:
 
             st.download_button("📥 Download", data=data, file_name=filename, mime=mime)
 
-            if email and re.match(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            if email and "@" in email:
                 with open(filename, "wb") as f:
                     f.write(data)
                 sent = send_email(email, f"{user_name} Chat Log", "Attached is your chat log.", filename)
@@ -225,7 +224,6 @@ if export_option:
                     st.success("✅ Email sent!")
                 else:
                     st.error(f"❌ Email error: {sent}")
-
         except Exception as e:
             st.error(f"❌ Export failed: {e}")
 
