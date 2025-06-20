@@ -9,29 +9,39 @@ from email.message import EmailMessage
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from fpdf import FPDF
+from gtts import gTTS
+import tempfile
+import base64
 
 # --------------------------
 # ✅ Email Credentials
 # --------------------------
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
-SENDER_PASSWORD = "vwvcwsfffbrvumzh"  # Use your app password
+SENDER_PASSWORD = "vwvcwsfffbrvumzh"
 
+# ✅ Voice output function
+def speak_text(text):
+    tts = gTTS(text=text, lang='en')
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
+        tts.save(fp.name)
+        audio_base64 = base64.b64encode(open(fp.name, "rb").read()).decode()
+        audio_html = f"""
+            <audio autoplay>
+                <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
+            </audio>
+        """
+        st.markdown(audio_html, unsafe_allow_html=True)
+
+# ✅ Email sending function
 def send_email(recipient_email, subject, body, attachment_path):
     msg = EmailMessage()
     msg['Subject'] = subject
     msg['From'] = SENDER_EMAIL
     msg['To'] = recipient_email
     msg.set_content(body.replace('\xa0', ' '))
-
     try:
         with open(attachment_path, 'rb') as f:
-            msg.add_attachment(
-                f.read(),
-                maintype='application',
-                subtype='pdf',
-                filename=os.path.basename(attachment_path)
-            )
-
+            msg.add_attachment(f.read(), maintype='application', subtype='pdf', filename=os.path.basename(attachment_path))
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
             smtp.send_message(msg)
@@ -39,16 +49,14 @@ def send_email(recipient_email, subject, body, attachment_path):
     except Exception as e:
         return str(e)
 
-# --------------------------
-# Chatbot Config
-# --------------------------
+# --- Config ---
 tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
 
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-# --- Sidebar with Settings ---
+# --- Sidebar ---
 with st.sidebar:
     st.title("⚙️ Settings")
     mode = st.radio("Select Theme", ["Dark", "Light"], index=0)
@@ -64,7 +72,7 @@ is_dark = mode == "Dark"
 bg_color = "#111" if is_dark else "#fff"
 txt_color = "white" if is_dark else "black"
 
-# --- CSS + Title + Banner ---
+# --- Custom CSS + Title ---
 st.markdown(f"""
 <style>
 .scrolling-banner {{
@@ -109,7 +117,7 @@ st.markdown(f"""
 <div class="chat-header">KCET Assistant</div>
 """, unsafe_allow_html=True)
 
-# --- Load Vectorized Q&A Data ---
+# --- Load Data ---
 @st.cache_data
 def load_vector_data():
     if os.path.exists(tf_vector_file):
@@ -126,7 +134,7 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# --- Init Chat State ---
+# --- Session State ---
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
@@ -145,6 +153,7 @@ if submitted and user_input.strip():
     idx = similarity.argmax()
     base_response = df.iloc[idx]['Answer'] if max_sim >= threshold else "❌ Sorry, I couldn't understand that. Please rephrase."
     st.session_state.chat_log.append(("KCET Assistant", base_response, "Assistant"))
+    speak_text(base_response)
     st.rerun()
 
 # --- Display Chat ---
@@ -159,7 +168,7 @@ for speaker, msg, role in st.session_state.chat_log:
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Export + Email Section ---
+# --- Export Chat Log ---
 if export_option:
     st.subheader("📤 Export Chat")
     file_type = st.radio("Choose file type", ["PDF", "TXT", "DOC"], index=0)
@@ -215,7 +224,7 @@ if export_option:
         except Exception as e:
             st.error(f"❌ Error: {e}")
 
-# --- Clear Chat Button ---
+# --- Clear Chat ---
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
     st.rerun()
