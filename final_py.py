@@ -95,10 +95,14 @@ st.markdown(f"""
     to {{opacity: 1; transform: translateY(0);}}
 }}
 </style>
+<div style="text-align:center; color:{txt_color}; font-size:22px; font-weight:bold; margin-top:10px;">
+    KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY
+</div>
 <div class="scrolling-banner">
     💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
 </div>
 <div class="chat-header">KCET Assistant</div>
+
 """, unsafe_allow_html=True)
 
 # --- Load Data ---
