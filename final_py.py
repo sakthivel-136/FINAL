@@ -47,7 +47,6 @@ if "user_profile" not in st.session_state:
 
 # --- Sidebar ---
 with st.sidebar:
-    st.image("kcet_logo.png", width=120)
     st.image(st.session_state.user_profile["avatar"], width=100)
     st.title("⚙️ Settings")
     st.text_input("Your Name", value=st.session_state.user_profile["name"], key="user_name")
@@ -201,14 +200,7 @@ if export_option:
             pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
             pdf.set_font("DejaVu", size=12)
 
-            # Add KCET logo
-            logo_path = "kcet_logo.png"
-            if os.path.exists(logo_path):
-                pdf.image(logo_path, x=10, y=8, w=30)
-                pdf.ln(20)
-
             pdf.cell(200, 10, txt="KCET Assistant Chat Log", ln=True, align="C")
-            pdf.cell(200, 10, txt=f"Name: {st.session_state.user_profile['name']}  Role: {st.session_state.user_profile['role']}", ln=True, align="C")
             pdf.ln(5)
 
             for speaker, msg, role in st.session_state.chat_log:
