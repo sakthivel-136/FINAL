@@ -17,8 +17,8 @@ from fpdf import FPDF
 tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
-SENDER_EMAIL = ("kamarajengg.edu.in@Gmail.com ")
-SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
+sender_email = st.secrets["kamarajengg.edu.in@Gmail.com"]
+sender_password = st.secrets["vwvc wsff fbrv umzh "]
 profile_file = "user_profile.json"
 
 # --- Streamlit Page ---
@@ -140,7 +140,7 @@ def load_vector_data():
 vectorizer, vectors, df = load_vector_data()
 
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
+    st.session_state.chat_log = [("KCET Assistant", "Hi there! 👋 I'm the KCET Assistant. How can I help you today?", "Assistant")]
 
 # --- Input Form ---
 with st.form("chat_form", clear_on_submit=True):
@@ -227,3 +227,8 @@ if export_option:
             os.remove(filename)
         except Exception as e:
             st.error(f"❌ Email Error: {e}")
+
+# --- Clear Chat ---
+if st.button("🧹 Clear Chat"):
+    st.session_state.chat_log = [("KCET Assistant", "Hi there! 👋 I'm the KCET Assistant. How can I help you today?", "Assistant")]
+    st.rerun()
