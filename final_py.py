@@ -205,7 +205,8 @@ if export_option:
 
             for speaker, msg, role in st.session_state.chat_log:
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                msg_clean = msg.encode("ascii", errors="ignore").decode("ascii")
+                safe_msg = msg  # Just use original message (supports Unicode)
+
                 pdf.multi_cell(0, 10, f"[{timestamp}] {speaker} ({role}): {msg_clean}")
 
             pdf.output(filename)
