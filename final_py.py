@@ -139,7 +139,7 @@ st.markdown(f"""
 <div class="scrolling-banner">
     100% Placement | Top Faculty | Research Driven | Hackathons | Industry Collaboration
 </div>
-<div class="chat-header">KCET Assistant</div>
+<div class="chat-header">KCET ChatBot</div>
 """, unsafe_allow_html=True)
 
 # ========== Load Vectorized Data ==========
@@ -161,7 +161,7 @@ vectorizer, vectors, df = load_vector_data()
 
 # ========== Chat State ==========
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
+    st.session_state.chat_log = [("KCET Bot", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
 # ========== Chat Form ==========
 with st.form("chat_form", clear_on_submit=True):
