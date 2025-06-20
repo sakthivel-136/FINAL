@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import pickle
@@ -7,7 +6,6 @@ import uuid
 import time
 import base64
 import smtplib
-import json
 from datetime import datetime
 from email.message import EmailMessage
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -20,51 +18,13 @@ csv_file = "kcet.csv"
 threshold = 0.6
 sender_email = "kamarajengg.edu.in@gmail.com"
 sender_password = "vwvc wsff fbrv umzh"
-profile_file = "user_profile.json"
 
 # --- Streamlit Page ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-# --- Load Profile ---
-def load_profile():
-    if os.path.exists(profile_file):
-        with open(profile_file, "r") as f:
-            return json.load(f)
-    return {
-        "name": "Guest",
-        "avatar": "",
-        "role": "Student",
-        "color": "#d0e8f2",
-        "text_color": "#000"
-    }
-
-# --- Save Profile ---
-def save_profile(profile):
-    with open(profile_file, "w") as f:
-        json.dump(profile, f)
-
-if "user_profile" not in st.session_state:
-    st.session_state.user_profile = load_profile()
-
 # --- Sidebar ---
 with st.sidebar:
     st.title("⚙️ Settings")
-    st.text_input("Your Name", value=st.session_state.user_profile["name"], key="user_name")
-    uploaded_avatar = st.file_uploader("Upload Avatar", type=["png", "jpg", "jpeg"])
-    st.selectbox("Select Role", ["Student", "Staff", "Faculty"], index=["Student", "Staff", "Faculty"].index(st.session_state.user_profile["role"]), key="user_role")
-    user_bubble_color = st.color_picker("Bubble Color", value=st.session_state.user_profile.get("color", "#d0e8f2"))
-    user_text_color = st.color_picker("Text Color", value=st.session_state.user_profile.get("text_color", "#000"))
-    if st.button("Update Profile"):
-        if uploaded_avatar:
-            avatar_path = f"avatar_{uuid.uuid4().hex}.png"
-            with open(avatar_path, "wb") as f:
-                f.write(uploaded_avatar.read())
-            st.session_state.user_profile["avatar"] = avatar_path
-        st.session_state.user_profile["name"] = st.session_state.user_name
-        st.session_state.user_profile["role"] = st.session_state.user_role
-        st.session_state.user_profile["color"] = user_bubble_color
-        st.session_state.user_profile["text_color"] = user_text_color
-        save_profile(st.session_state.user_profile)
     mode = st.radio("Select Theme", ["Dark", "Light"], index=0)
     export_option = st.checkbox("Enable Export Options")
 
@@ -142,8 +102,7 @@ with st.form("chat_form", clear_on_submit=True):
 
 # --- Chat Logic ---
 if submitted and user_input.strip():
-    user_role = st.session_state.user_profile["role"]
-    st.session_state.chat_log.append((st.session_state.user_profile["name"], user_input.strip(), user_role))
+    st.session_state.chat_log.append(("You", user_input.strip(), "User"))
 
     vec = vectorizer.transform([user_input.lower()])
     similarity = cosine_similarity(vec, vectors)
@@ -151,12 +110,7 @@ if submitted and user_input.strip():
     idx = similarity.argmax()
 
     base_response = df.iloc[idx]['Answer'] if max_sim >= threshold else "❌ Sorry, I couldn't understand that. Please rephrase."
-    if user_role == "Faculty":
-        full_response = base_response + "\n👩‍🏫 As Faculty, you can reach academic research support at research@kcet.ac.in."
-    elif user_role == "Staff":
-        full_response = base_response + "\n🧑‍💼 Staff members can view administrative resources on the intranet."
-    else:
-        full_response = base_response
+    full_response = base_response
 
     st.session_state.chat_log.append(("KCET Assistant", full_response, "Assistant"))
     st.rerun()
@@ -164,9 +118,9 @@ if submitted and user_input.strip():
 # --- Display Chat ---
 st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg, role in st.session_state.chat_log:
-    align = 'right' if speaker == st.session_state.user_profile["name"] else 'left'
-    bg = st.session_state.user_profile["color"] if speaker == st.session_state.user_profile["name"] else "#d1d1e9"
-    txt = st.session_state.user_profile["text_color"] if speaker == st.session_state.user_profile["name"] else "#000"
+    align = 'right' if speaker == "You" else 'left'
+    bg = "#d0e8f2" if speaker == "You" else "#d1d1e9"
+    txt = "#000"
     msg_clean = msg.replace('\xa0', ' ')
     st.markdown(f"""
     <div class='message' style='background-color:{bg}; text-align:{align}; color:{txt};'>
@@ -218,7 +172,8 @@ if export_option:
                         subtype = "plain"
                     elif file_type == "DOC":
                         subtype = "msword"
-                    msg.add_attachment(f.read(), maintype=maintype, subtype=subtype, filename=filename.encode("ascii", "ignore").decode("ascii"))
+                    safe_filename = ''.join(c if ord(c) < 128 else '_' for c in filename)
+                    msg.add_attachment(f.read(), maintype=maintype, subtype=subtype, filename=safe_filename)
 
                 with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
                     smtp.login(sender_email, sender_password)
