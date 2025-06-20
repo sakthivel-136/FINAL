@@ -10,14 +10,38 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from fpdf import FPDF
 
-# --- Config ---
+# --------------------------
+# ✅ Email Credentials
+# --------------------------
+SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
+SENDER_PASSWORD = ""vwvc wsff fbrv umzh  # Use Gmail App Password only
+
+# ✅ Reusable Email Function
+def send_email(recipient_email, subject, body, attachment_path):
+    msg = EmailMessage()
+    msg['Subject'] = subject
+    msg['From'] = SENDER_EMAIL
+    msg['To'] = recipient_email
+    msg.set_content(body)
+
+    try:
+        with open(attachment_path, 'rb') as f:
+            msg.add_attachment(f.read(), maintype='application', subtype='pdf', filename=os.path.basename(attachment_path))
+
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
+            smtp.send_message(msg)
+        return True
+    except Exception as e:
+        return str(e)
+
+# --------------------------
+# Chatbot Config
+# --------------------------
 tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
-sender_email = "kamarajengg.edu.in@gmail.com"
-sender_password = "vwvc wsff fbrv umzh"  # Replace with your App Password
 
-# --- Streamlit Page ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
 # --- Sidebar ---
@@ -30,7 +54,7 @@ is_dark = mode == "Dark"
 bg_color = "#111" if is_dark else "#fff"
 txt_color = "white" if is_dark else "black"
 
-# --- Custom CSS ---
+# --- CSS and Banner ---
 st.markdown(f"""
 <style>
 .scrolling-banner {{
@@ -123,9 +147,9 @@ for speaker, msg, role in st.session_state.chat_log:
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Export + Email ---
+# --- Export Section ---
 if export_option:
-    st.subheader("📤 Export Options")
+    st.subheader("📤 Export Chat")
     file_type = st.radio("Choose file type", ["PDF", "TXT", "DOC"], index=0)
     email = st.text_input("📧 Email (optional)", placeholder="example@gmail.com")
 
@@ -133,7 +157,6 @@ if export_option:
         try:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"kcet_chat_{timestamp}.{file_type.lower()}"
-            safe_filename = ''.join(c if ord(c) < 128 else '_' for c in filename)
 
             if file_type == "PDF":
                 pdf = FPDF()
@@ -148,18 +171,20 @@ if export_option:
                 file_data = pdf.output(dest='S').encode('latin-1')
                 download_data = file_data
                 mime = "application/pdf"
-                subtype = "pdf"
             else:
                 text_data = ""
                 for speaker, msg, role in st.session_state.chat_log:
                     msg_clean = msg.replace('\xa0', ' ')
                     text_data += f"{speaker} ({role}): {msg_clean}\n"
-                file_data = text_data  # string, for email
-                download_data = text_data.encode("utf-8")  # bytes, for download
+                file_data = text_data.encode("utf-8")
+                download_data = file_data
                 mime = "application/msword" if file_type == "DOC" else "text/plain"
-                subtype = "msword" if file_type == "DOC" else "plain"
 
-            # Download
+            # ✅ Save for emailing
+            with open(filename, "wb") as f:
+                f.write(download_data)
+
+            # ✅ Download
             st.download_button(
                 label=f"📥 Download {file_type}",
                 data=download_data,
@@ -167,32 +192,21 @@ if export_option:
                 mime=mime
             )
 
-            # Email if valid
+            # ✅ Send email if email is valid
             if email and "@" in email:
-                msg = EmailMessage()
-                msg['Subject'] = "KCET Assistant Chat Log"
-                msg['From'] = sender_email
-                msg['To'] = email
-                msg.set_content("Please find the KCET Assistant chat log attached.")
-
-                if file_type == "PDF":
-                    msg.add_attachment(file_data, maintype="application", subtype=subtype,
-                                       filename=safe_filename)
+                subject = "KCET Assistant Chat Log"
+                body = "Please find the attached KCET Assistant chat log."
+                result = send_email(email, subject, body, filename)
+                if result == True:
+                    st.success("✅ Email sent successfully!")
                 else:
-                    msg.add_attachment(file_data, maintype="application", subtype=subtype,
-                                       filename=safe_filename, charset="utf-8")
-
-                with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-                    smtp.login(sender_email, sender_password)
-                    smtp.send_message(msg)
-
-                st.success("✅ Chat log sent via email!")
+                    st.error(f"❌ Failed to send email: {result}")
             elif email:
-                st.warning("⚠️ Invalid email address.")
+                st.warning("⚠️ Invalid email format.")
         except Exception as e:
             st.error(f"❌ Error: {e}")
 
-# --- Clear Chat ---
+# --- Clear Chat Button ---
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
     st.rerun()
