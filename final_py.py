@@ -27,13 +27,25 @@ SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
 
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
+# -- Persistent Theme Selection --
+if "theme" not in st.session_state:
+    st.session_state.theme = "Dark"
+
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/2922/2922506.png", width=100)
     st.title("⚙️ Settings")
-    mode = st.radio("Select Theme", ["Dark", "Light"], index=0)
+    theme = st.radio("Select Theme", ["Dark", "Light"], index=0 if st.session_state.theme == "Dark" else 1)
+    if theme != st.session_state.theme:
+        st.session_state.theme = theme
+        st.rerun()
     export_option = st.checkbox("Enable Export Options")
+    uploaded_file = st.file_uploader("Upload Feedback File", type=["txt", "pdf", "docx"])
 
-dark_mode = mode == "Dark"
+# --- Branding ---
+BOT_NAME = "KCET Virtual Buddy"
+
+# --- Theming ---
+dark_mode = st.session_state.theme == "Dark"
 background = "#111" if dark_mode else "#fff"
 text_color = "white" if dark_mode else "black"
 user_bg = "#444" if dark_mode else "#ccc"
@@ -85,7 +97,7 @@ st.markdown(f"""
     <div class="scrolling-banner">
         💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
     </div>
-    <div class="chat-header">KCET Assistant</div>
+    <div class="chat-header">{BOT_NAME}</div>
 """, unsafe_allow_html=True)
 
 @st.cache_data
@@ -105,7 +117,7 @@ def load_vector_data():
 vectorizer, vectors, df = load_vector_data()
 
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
+    st.session_state.chat_log = [("🧠", f"Hello! I'm {BOT_NAME}. Ask me anything.")]
 
 # --- Input Form ---
 with st.form("chat_form", clear_on_submit=True):
@@ -198,10 +210,10 @@ if export_option:
                             f.write(f"[{timestamp}] {speaker}: {clean_msg}\n")
 
                 msg = EmailMessage()
-                msg['Subject'] = "KCET Chat Log"
+                msg['Subject'] = f"{BOT_NAME} Chat Log"
                 msg['From'] = SENDER_EMAIL
                 msg['To'] = email
-                msg.set_content("Here is your chat log with the KCET Assistant.")
+                msg.set_content(f"Here is your chat log with {BOT_NAME}.")
 
                 with open(attachment_path, "rb") as f:
                     maintype, subtype = ("application", "octet-stream")
@@ -226,5 +238,5 @@ if export_option:
                     os.remove(attachment_path)
 
 if st.button("🧹 Clear Chat"):
-    st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
+    st.session_state.chat_log = [("🧠", f"Hello! I'm {BOT_NAME}. Ask me anything.")]
     st.rerun()
