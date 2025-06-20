@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import pickle
 import os
-import uuid
-from datetime import datetime
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from fpdf import FPDF
@@ -39,11 +37,11 @@ with st.sidebar:
     st.session_state.user_name = st.text_input("👤 Your Name", value=st.session_state.get("user_name", "Shakthivel"))
     user_bubble_color = st.color_picker("🎨 User Bubble", "#d0e8f2")
     assistant_bubble_color = st.color_picker("🎨 Assistant Bubble", "#d1d1e9")
-    txt_color = st.color_picker("🖋️ Text Color", "#000000")  # <-- fixed
+    txt_color = st.color_picker("🖋️ Text Color", "#000000")
     export_option = st.checkbox("📤 Enable Export")
 
 bg_color = "#111" if is_dark else "#fff"
-txt_color = "white" if is_dark else txt_color  # use white text in dark mode
+final_txt_color = "white" if is_dark else txt_color  # ✅ Fixed logic
 user_name = st.session_state.user_name
 
 # =============== Header ===============
@@ -65,7 +63,7 @@ st.markdown(f"""
 .title-text {{
     font-size: 22px;
     font-weight: bold;
-    color: {txt_color};
+    color: {final_txt_color};
     display: inline-block;
     vertical-align: middle;
 }}
@@ -90,7 +88,7 @@ st.markdown(f"""
 }}
 .chat-header {{
     font-size: 28px;
-    color: {txt_color};
+    color: {final_txt_color};
     text-align: center;
     padding: 10px 0;
     font-weight: bold;
@@ -116,24 +114,20 @@ st.markdown(f"""
 <div class="chat-header">KCET Assistant</div>
 """, unsafe_allow_html=True)
 
-# =============== Vector Data ===============
+# =============== Load Vector Data ===============
 @st.cache_data
 def load_vector_data():
-    try:
-        if os.path.exists(tf_vector_file):
-            with open(tf_vector_file, "rb") as f:
-                vectorizer, vectors, df = pickle.load(f)
-        else:
-            df = pd.read_csv(csv_file)
-            df['Question'] = df['Question'].str.lower().str.strip()
-            vectorizer = TfidfVectorizer()
-            vectors = vectorizer.fit_transform(df['Question'])
-            with open(tf_vector_file, "wb") as f:
-                pickle.dump((vectorizer, vectors, df), f)
-        return vectorizer, vectors, df
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        st.stop()
+    if os.path.exists(tf_vector_file):
+        with open(tf_vector_file, "rb") as f:
+            vectorizer, vectors, df = pickle.load(f)
+    else:
+        df = pd.read_csv(csv_file)
+        df['Question'] = df['Question'].str.lower().str.strip()
+        vectorizer = TfidfVectorizer()
+        vectors = vectorizer.fit_transform(df['Question'])
+        with open(tf_vector_file, "wb") as f:
+            pickle.dump((vectorizer, vectors, df), f)
+    return vectorizer, vectors, df
 
 vectorizer, vectors, df = load_vector_data()
 
@@ -164,12 +158,12 @@ for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if role == "User" else 'left'
     bg = user_bubble_color if role == "User" else assistant_bubble_color
     st.markdown(f"""
-    <div class='message' style='background-color:{bg}; text-align:{align}; color:{txt_color};'>
+    <div class='message' style='background-color:{bg}; text-align:{align}; color:{final_txt_color};'>
         <div><b>{speaker}</b> ({role}): {msg.replace('\xa0', ' ')}</div>
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# =============== Export Chat (no email) ===============
+# =============== Export Chat ===============
 if export_option:
     st.subheader("📤 Export Chat")
     file_type = st.radio("File Type", ["PDF", "TXT", "DOC"], index=0)
