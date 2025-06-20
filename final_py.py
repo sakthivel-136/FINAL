@@ -3,38 +3,24 @@ import pandas as pd
 import pickle
 import os
 import smtplib
+import re
+from email.message import EmailMessage
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from fpdf import FPDF
 from gtts import gTTS
-from email.message import EmailMessage
 import tempfile
 import base64
 
 # ========== EMAIL CREDENTIALS ==========
-SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"  # 🔁 Replace with your Gmail
-SENDER_PASSWORD = "vwvc wsff fbrv umzh "  # 🔁 Use app password only!
+SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
+SENDER_PASSWORD = "vwvcwsfffbrvumzh"  # Gmail App Password
 
-# ========== SEND EMAIL FUNCTION ==========
-def send_email(recipient_email, subject, body, attachment_path):
-    msg = EmailMessage()
-    msg['Subject'] = subject
-    msg['From'] = SENDER_EMAIL
-    msg['To'] = recipient_email
-    msg.set_content(body)
+# ========== Remove Emojis ==========
+def remove_emojis(text):
+    return re.sub(r'[^\x00-\x7F]+', '', text)
 
-    with open(attachment_path, 'rb') as f:
-        msg.add_attachment(f.read(), maintype='application', subtype='pdf', filename='KCET_Chat_Report.pdf')
-
-    try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
-            smtp.send_message(msg)
-        return True
-    except Exception as e:
-        return str(e)
-
-# ========== VOICE OUTPUT ==========
+# ========== Voice Response ==========
 def speak_text(text):
     tts = gTTS(text=text, lang='en')
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
@@ -46,6 +32,23 @@ def speak_text(text):
             </audio>
         """
         st.markdown(audio_html, unsafe_allow_html=True)
+
+# ========== Email Sending ==========
+def send_email(recipient_email, subject, body, attachment_path):
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = SENDER_EMAIL
+    msg["To"] = recipient_email
+    msg.set_content(body)
+    with open(attachment_path, "rb") as f:
+        msg.add_attachment(f.read(), maintype="application", subtype="pdf", filename="KCET_Chat_Report.pdf")
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
+            smtp.send_message(msg)
+        return True
+    except Exception as e:
+        return str(e)
 
 # ========== Constants ==========
 tf_vector_file = "vectorized.pkl"
@@ -60,22 +63,16 @@ with st.sidebar:
     mode = st.radio("Theme", ["Dark", "Light"], index=0)
     is_dark = mode == "Dark"
     st.session_state.user_name = st.text_input("👤 Your Name", value=st.session_state.get("user_name", "Shakthivel"))
-    st.session_state.user_bubble_color = st.color_picker("🎨 User Bubble", "#d0e8f2")
-    st.session_state.assistant_bubble_color = st.color_picker("🎨 Assistant Bubble", "#d1d1e9")
-    if "txt_color" not in st.session_state:
-        st.session_state.txt_color = "#000000"
-    new_color = st.color_picker("🖋️ Text Color", st.session_state.txt_color)
-    if new_color != st.session_state.txt_color:
-        st.session_state.txt_color = new_color
-        st.session_state.color_changed = True
-        st.experimental_rerun()
+    user_bubble_color = st.color_picker("🎨 User Bubble", "#d0e8f2")
+    assistant_bubble_color = st.color_picker("🎨 Assistant Bubble", "#d1d1e9")
+    text_color = st.color_picker("🖋️ Text Color", "#000000")
     export_option = st.checkbox("📤 Enable Export")
 
 bg_color = "#111" if is_dark else "#fff"
-final_txt_color = "white" if is_dark else st.session_state.txt_color
+final_txt_color = "white" if is_dark else text_color
 user_name = st.session_state.user_name
 
-# ========== Header ==========
+# ========== Header UI ==========
 try:
     with open("kcet_logo.png", "rb") as image_file:
         encoded_img = base64.b64encode(image_file.read()).decode()
@@ -140,12 +137,12 @@ st.markdown(f"""
     <span class="title-text">KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</span>
 </div>
 <div class="scrolling-banner">
-    💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
+    100% Placement | Top Faculty | Research Driven | Hackathons | Industry Collaboration
 </div>
 <div class="chat-header">KCET Assistant</div>
 """, unsafe_allow_html=True)
 
-# ========== Load Vector Data ==========
+# ========== Load Vectorized Data ==========
 @st.cache_data
 def load_vector_data():
     if os.path.exists(tf_vector_file):
@@ -162,7 +159,7 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# ========== Chat Session ==========
+# ========== Chat State ==========
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
@@ -187,18 +184,18 @@ if submitted and user_input.strip():
 st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if role == "User" else 'left'
-    bg = st.session_state.user_bubble_color if role == "User" else st.session_state.assistant_bubble_color
+    bg = user_bubble_color if role == "User" else assistant_bubble_color
     st.markdown(f"""
     <div class='message' style='background-color:{bg}; text-align:{align}; color:{final_txt_color};'>
         <div><b>{speaker}</b> ({role}): {msg.replace('\xa0', ' ')}</div>
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ========== Export ==========
+# ========== Export Option ==========
 if export_option:
     st.subheader("📤 Export Chat")
     file_type = st.radio("File Type", ["PDF", "TXT", "DOC"], index=0)
-    email = st.text_input("📧 Email (only for PDF)", placeholder="example@gmail.com")
+    email = st.text_input("📧 Email (PDF only)", placeholder="example@gmail.com")
 
     if st.button("Download / Email"):
         try:
@@ -215,12 +212,13 @@ if export_option:
                 pdf.cell(160, 10, txt="KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY", ln=True)
                 pdf.set_font("Arial", '', 11)
                 pdf.set_xy(10, 25)
-                pdf.multi_cell(0, 8, "💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration")
+                pdf.multi_cell(0, 8, remove_emojis("100% Placement | Top Faculty | Research Driven | Hackathons | Industry Collaboration"))
                 pdf.line(10, 38, 200, 38)
                 pdf.set_xy(10, 45)
                 pdf.set_font("Arial", '', 12)
                 for speaker, msg, role in st.session_state.chat_log:
-                    pdf.multi_cell(0, 10, f"{speaker} ({role}): {msg.replace('\xa0', ' ')}")
+                    clean_msg = remove_emojis(msg.replace('\xa0', ' '))
+                    pdf.multi_cell(0, 10, f"{speaker} ({role}): {clean_msg}")
 
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                     pdf.output(tmp.name)
@@ -228,21 +226,22 @@ if export_option:
                     with open(file_path, "rb") as f:
                         st.download_button("📥 Download", f.read(), file_name=filename, mime="application/pdf")
 
+                if email and "@" in email:
+                    result = send_email(email, f"{user_name} Chat Log", "Attached is your KCET chat report.", file_path)
+                    if result is True:
+                        st.success("✅ Email sent to " + email)
+                    else:
+                        st.error(f"❌ Email failed: {result}")
+
             else:
                 text = "\n".join([f"{s} ({r}): {m}" for s, m, r in st.session_state.chat_log])
                 mime = "application/msword" if file_type == "DOC" else "text/plain"
                 st.download_button("📥 Download", text.encode(), file_name=filename, mime=mime)
 
-            if email and file_path:
-                result = send_email(email, f"{user_name} Chat Log", "Attached is your KCET chat log report.", file_path)
-                if result is True:
-                    st.success("✅ Email sent to " + email)
-                else:
-                    st.error(f"❌ Email failed: {result}")
         except Exception as e:
             st.error(f"❌ Export failed: {e}")
 
-# ========== Clear ==========
+# ========== Clear Chat ==========
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
     st.rerun()
