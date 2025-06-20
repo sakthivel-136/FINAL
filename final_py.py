@@ -22,8 +22,8 @@ except ImportError:
 VECTOR_FILE = "vectorized.pkl"
 CSV_FILE = "kcet.csv"
 THRESHOLD = 0.6
-SENDER_EMAIL = "your_email@gmail.com"
-SENDER_PASSWORD = "your_app_password"
+SENDER_EMAIL = ("kamarajengg.edu.in@Gmail.com ")
+SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
 
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
@@ -108,18 +108,6 @@ vectorizer, vectors, df = load_vector_data()
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
 
-if history_toggle:
-    st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
-    for speaker, msg in st.session_state.chat_log:
-        align = 'right' if speaker == '👤' else 'left'
-        bg = user_bg if speaker == '👤' else bot_bg
-        avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker == "👤" else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
-        st.markdown(f"""
-        <div class='message' style='background-color:{bg}; text-align:{align}; color:{text_color};'>
-            <img src='{avatar}' class='avatar'/>
-            <div><b>{speaker}</b>: {msg}</div>
-        </div>""", unsafe_allow_html=True)
-
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
@@ -135,7 +123,7 @@ if submitted and user_input.strip():
 
     full_response = df.iloc[idx]['Answer'] if max_sim >= THRESHOLD else "❌ Sorry, I couldn't understand that. Please rephrase."
 
-        try:
+    try:
         tts = gTTS(text=full_response, lang='en')
         audio_file = f"tts_{uuid.uuid4().hex}.mp3"
         tts.save(audio_file)
@@ -144,19 +132,27 @@ if submitted and user_input.strip():
         st.audio(audio_bytes, format="audio/mp3", start_time=0)
 
         if AudioSegment:
-            try:
-                duration = AudioSegment.from_file(audio_file).duration_seconds
-                time.sleep(min(duration, 30))  # sleep only if duration available
-            except Exception as e:
-                st.warning(f"Audio duration not detected: {e}")
-        else:
-            st.warning("AudioSegment not available or ffmpeg missing.")
+            duration = AudioSegment.from_file(audio_file).duration_seconds
+            time.sleep(math.ceil(duration))
 
         os.remove(audio_file)
-
+    except Exception as e:
+        st.error(f"TTS error: {e}")
 
     st.session_state.chat_log.append(("🧠", full_response))
     st.rerun()
+
+if history_toggle:
+    st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
+    for speaker, msg in st.session_state.chat_log:
+        align = 'right' if speaker == '👤' else 'left'
+        bg = user_bg if speaker == '👤' else bot_bg
+        avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker == "👤" else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
+        st.markdown(f"""
+        <div class='message' style='background-color:{bg}; text-align:{align}; color:{text_color};'>
+            <img src='{avatar}' class='avatar'/>
+            <div><b>{speaker}</b>: {msg}</div>
+        </div>""", unsafe_allow_html=True)
 
 if export_option:
     st.subheader("📤 Export Chat")
