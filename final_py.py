@@ -140,7 +140,7 @@ def load_vector_data():
 vectorizer, vectors, df = load_vector_data()
 
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [(st.session_state.user_profile["name"], "Hello! I'm your KCET Assistant. Ask me anything.", st.session_state.user_profile["role"])]
+    st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
 # --- Input Form ---
 with st.form("chat_form", clear_on_submit=True):
