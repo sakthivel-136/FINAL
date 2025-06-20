@@ -17,8 +17,8 @@ from fpdf import FPDF
 tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
-sender_email = ("kamarajengg.edu.in@Gmail.com")
-sender_password = ("vwvc wsff fbrv umzh ")
+sender_email = "kamarajengg.edu.in@gmail.com"
+sender_password = "vwvc wsff fbrv umzh"  # Replace with your actual app password
 profile_file = "user_profile.json"
 
 # --- Streamlit Page ---
@@ -140,7 +140,7 @@ def load_vector_data():
 vectorizer, vectors, df = load_vector_data()
 
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("KCET Assistant", "Hi there! 👋 I'm the KCET Assistant. How can I help you today?", "Assistant")]
+    st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
 # --- Input Form ---
 with st.form("chat_form", clear_on_submit=True):
@@ -174,17 +174,12 @@ st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if speaker == st.session_state.user_profile["name"] else 'left'
     avatar = st.session_state.user_profile["avatar"] if speaker == st.session_state.user_profile["name"] else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
-    if speaker == st.session_state.user_profile["name"]:
-        bg = st.session_state.user_profile["color"]
-        txt = st.session_state.user_profile["text_color"]
-    else:
-        bg = "#d1d1e9"
-        txt = "#000"
-    safe_msg = msg.encode("ascii", errors="ignore").decode("ascii")
+    bg = st.session_state.user_profile["color"] if speaker == st.session_state.user_profile["name"] else "#d1d1e9"
+    txt = st.session_state.user_profile["text_color"] if speaker == st.session_state.user_profile["name"] else "#000"
     st.markdown(f"""
     <div class='message' style='background-color:{bg}; text-align:{align}; color:{txt};'>
         <img src='{avatar}' class='avatar'/>
-        <div><b>{speaker}</b> ({role}): {safe_msg}</div>
+        <div><b>{speaker}</b> ({role}): {msg}</div>
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -205,9 +200,7 @@ if export_option:
 
             for speaker, msg, role in st.session_state.chat_log:
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                safe_msg = msg  # Just use original message (supports Unicode)
-
-                pdf.multi_cell(0, 10, f"[{timestamp}] {speaker} ({role}): {msg_clean}")
+                pdf.multi_cell(0, 10, f"[{timestamp}] {speaker} ({role}): {msg}")
 
             pdf.output(filename)
 
@@ -228,8 +221,3 @@ if export_option:
             os.remove(filename)
         except Exception as e:
             st.error(f"❌ Email Error: {e}")
-
-# --- Clear Chat ---
-if st.button("🧹 Clear Chat"):
-    st.session_state.chat_log = [("KCET Assistant", "Hi there! 👋 I'm the KCET Assistant. How can I help you today?", "Assistant")]
-    st.rerun()
