@@ -16,7 +16,7 @@ tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
 sender_email = "kamarajengg.edu.in@gmail.com"
-sender_password = "vwvc wsff fbrv umzh"  # 🔑 Use app password
+sender_password = "vwvc wsff fbrv umzh"  # 🔑 Use your Gmail App Password
 
 # --- Streamlit Page ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
@@ -150,7 +150,7 @@ if export_option:
                 for speaker, msg, role in st.session_state.chat_log:
                     msg_clean = msg.replace('\xa0', ' ')
                     pdf.multi_cell(0, 10, f"{speaker} ({role}): {msg_clean}")
-                file_data = pdf.output(dest='S').encode('latin-1')  # ✅ FIXED
+                file_data = pdf.output(dest='S').encode('latin-1')
                 mime = "application/pdf"
             else:
                 text_data = ""
@@ -168,7 +168,7 @@ if export_option:
                 mime=mime
             )
 
-            # 📧 Send Email if email is provided
+            # ✅ Email Attachment
             if email and "@" in email:
                 msg = EmailMessage()
                 msg['Subject'] = "KCET Assistant Chat Log"
@@ -176,7 +176,14 @@ if export_option:
                 msg['To'] = email
                 msg.set_content("Please find the KCET Assistant chat log attached.")
 
-                msg.add_attachment(file_data, maintype="application", subtype=mime.split("/")[-1], filename=safe_filename)
+                subtype = mime.split("/")[-1]
+
+                if subtype in ["plain", "msword"]:
+                    msg.add_attachment(file_data, maintype="application", subtype=subtype,
+                                       filename=safe_filename, charset="utf-8")
+                else:
+                    msg.add_attachment(file_data, maintype="application", subtype=subtype,
+                                       filename=safe_filename)
 
                 with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
                     smtp.login(sender_email, sender_password)
