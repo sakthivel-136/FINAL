@@ -6,118 +6,142 @@ import uuid
 import time
 import base64
 import smtplib
-import math
+import json
 from datetime import datetime
 from email.message import EmailMessage
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from fpdf import FPDF
-from gtts import gTTS
 
-try:
-    from pydub import AudioSegment
-except ImportError:
-    AudioSegment = None
-
-VECTOR_FILE = "vectorized.pkl"
-CSV_FILE = "kcet.csv"
-THRESHOLD = 0.6
+# --- Config ---
+tf_vector_file = "vectorized.pkl"
+csv_file = "kcet.csv"
+threshold = 0.6
 SENDER_EMAIL = ("kamarajengg.edu.in@Gmail.com ")
 SENDER_PASSWORD = ("vwvc wsff fbrv umzh ")
+profile_file = "user_profile.json"
 
+# --- Streamlit Page ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-# -- Persistent Theme Selection --
-if "theme" not in st.session_state:
-    st.session_state.theme = "Dark"
+# --- Load Profile ---
+def load_profile():
+    if os.path.exists(profile_file):
+        with open(profile_file, "r") as f:
+            return json.load(f)
+    return {
+        "name": "Guest",
+        "avatar": "https://cdn-icons-png.flaticon.com/512/2922/2922506.png",
+        "role": "Student",
+        "color": "#d0e8f2",
+        "text_color": "#000"
+    }
 
+# --- Save Profile ---
+def save_profile(profile):
+    with open(profile_file, "w") as f:
+        json.dump(profile, f)
+
+if "user_profile" not in st.session_state:
+    st.session_state.user_profile = load_profile()
+
+# --- Sidebar ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2922/2922506.png", width=100)
+    st.image("kcet_logo.png", width=120)
+    st.image(st.session_state.user_profile["avatar"], width=100)
     st.title("⚙️ Settings")
-    theme = st.radio("Select Theme", ["Dark", "Light"], index=0 if st.session_state.theme == "Dark" else 1)
-    if theme != st.session_state.theme:
-        st.session_state.theme = theme
-        st.rerun()
+    st.text_input("Your Name", value=st.session_state.user_profile["name"], key="user_name")
+    uploaded_avatar = st.file_uploader("Upload Avatar", type=["png", "jpg", "jpeg"])
+    st.selectbox("Select Role", ["Student", "Staff", "Faculty"], index=["Student", "Staff", "Faculty"].index(st.session_state.user_profile["role"]), key="user_role")
+    user_bubble_color = st.color_picker("Bubble Color", value=st.session_state.user_profile.get("color", "#d0e8f2"))
+    user_text_color = st.color_picker("Text Color", value=st.session_state.user_profile.get("text_color", "#000"))
+    if st.button("Update Profile"):
+        if uploaded_avatar:
+            avatar_path = f"avatar_{uuid.uuid4().hex}.png"
+            with open(avatar_path, "wb") as f:
+                f.write(uploaded_avatar.read())
+            st.session_state.user_profile["avatar"] = avatar_path
+        st.session_state.user_profile["name"] = st.session_state.user_name
+        st.session_state.user_profile["role"] = st.session_state.user_role
+        st.session_state.user_profile["color"] = user_bubble_color
+        st.session_state.user_profile["text_color"] = user_text_color
+        save_profile(st.session_state.user_profile)
+    mode = st.radio("Select Theme", ["Dark", "Light"], index=0)
     export_option = st.checkbox("Enable Export Options")
-    uploaded_file = st.file_uploader("Upload Feedback File", type=["txt", "pdf", "docx"])
 
-# --- Branding ---
-BOT_NAME = "KCET Virtual Buddy"
+is_dark = mode == "Dark"
+bg_color = "#111" if is_dark else "#fff"
+txt_color = "white" if is_dark else "black"
 
-# --- Theming ---
-dark_mode = st.session_state.theme == "Dark"
-background = "#111" if dark_mode else "#fff"
-text_color = "white" if dark_mode else "black"
-user_bg = "#444" if dark_mode else "#ccc"
-bot_bg = "#222" if dark_mode else "#eee"
-
+# --- Custom CSS ---
 st.markdown(f"""
-    <style>
-    .scrolling-banner {{
-        overflow: hidden;
-        white-space: nowrap;
-        animation: scroll-left 20s linear infinite;
-        color: gold;
-        background-color: {background};
-        padding: 8px;
-        font-weight: bold;
-        font-size: 16px;
-        text-align: center;
-    }}
-    @keyframes scroll-left {{
-        0% {{ transform: translateX(100%); }}
-        100% {{ transform: translateX(-100%); }}
-    }}
-    .chat-header {{
-        font-size: 28px;
-        color: {text_color};
-        text-align: center;
-        padding: 10px 0 5px 0;
-        font-weight: bold;
-    }}
-    .message {{
-        display: flex;
-        align-items: flex-start;
-        gap: 10px;
-        padding: 10px;
-        border-radius: 10px;
-        margin: 5px 0;
-        animation: fadein 0.5s;
-    }}
-    @keyframes fadein {{
-        from {{opacity: 0; transform: translateY(10px);}}
-        to {{opacity: 1; transform: translateY(0);}}
-    }}
-    .avatar {{
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-    }}
-    </style>
-    <div class="scrolling-banner">
-        💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
-    </div>
-    <div class="chat-header">{BOT_NAME}</div>
+<style>
+.scrolling-banner {{
+    overflow: hidden;
+    white-space: nowrap;
+    animation: scroll-left 20s linear infinite;
+    color: gold;
+    background-color: {bg_color};
+    padding: 8px;
+    font-weight: bold;
+    font-size: 16px;
+    text-align: center;
+}}
+@keyframes scroll-left {{
+    0% {{ transform: translateX(100%); }}
+    100% {{ transform: translateX(-100%); }}
+}}
+.chat-header {{
+    font-size: 28px;
+    color: {txt_color};
+    text-align: center;
+    padding: 10px 0 5px 0;
+    font-weight: bold;
+}}
+.message {{
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    margin: 5px 0;
+    animation: fadein 0.5s;
+}}
+@keyframes fadein {{
+    from {{opacity: 0; transform: translateY(10px);}}
+    to {{opacity: 1; transform: translateY(0);}}
+}}
+.avatar {{
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+}}
+</style>
+<div class="scrolling-banner">
+    💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
+</div>
+<div class="chat-header">KCET Assistant</div>
 """, unsafe_allow_html=True)
 
+# --- Load Data ---
 @st.cache_data
 def load_vector_data():
-    if os.path.exists(VECTOR_FILE):
-        with open(VECTOR_FILE, "rb") as f:
+    if os.path.exists(tf_vector_file):
+        with open(tf_vector_file, "rb") as f:
             vectorizer, vectors, df = pickle.load(f)
     else:
-        df = pd.read_csv(CSV_FILE)
+        df = pd.read_csv(csv_file)
         df['Question'] = df['Question'].str.lower().str.strip()
         vectorizer = TfidfVectorizer()
         vectors = vectorizer.fit_transform(df['Question'])
-        with open(VECTOR_FILE, "wb") as f:
+        with open(tf_vector_file, "wb") as f:
             pickle.dump((vectorizer, vectors, df), f)
     return vectorizer, vectors, df
 
 vectorizer, vectors, df = load_vector_data()
 
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("🧠", f"Hello! I'm {BOT_NAME}. Ask me anything.")]
+    st.session_state.chat_log = [(st.session_state.user_profile["name"], "Hello! I'm your KCET Assistant. Ask me anything.", st.session_state.user_profile["role"])]
 
 # --- Input Form ---
 with st.form("chat_form", clear_on_submit=True):
@@ -125,118 +149,89 @@ with st.form("chat_form", clear_on_submit=True):
     user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
     submitted = col2.form_submit_button("➤")
 
+# --- Chat Logic ---
 if submitted and user_input.strip():
-    st.session_state.chat_log.append(("👤", user_input.strip()))
+    user_role = st.session_state.user_profile["role"]
+    st.session_state.chat_log.append((st.session_state.user_profile["name"], user_input.strip(), user_role))
 
     vec = vectorizer.transform([user_input.lower()])
     similarity = cosine_similarity(vec, vectors)
     max_sim = similarity.max()
     idx = similarity.argmax()
 
-    full_response = df.iloc[idx]['Answer'] if max_sim >= THRESHOLD else "❌ Sorry, I couldn't understand that. Please rephrase."
+    base_response = df.iloc[idx]['Answer'] if max_sim >= threshold else "❌ Sorry, I couldn't understand that. Please rephrase."
+    if user_role == "Faculty":
+        full_response = base_response + "\n👩‍🏫 As Faculty, you can reach academic research support at research@kcet.ac.in."
+    elif user_role == "Staff":
+        full_response = base_response + "\n🧑‍💼 Staff members can view administrative resources on the intranet."
+    else:
+        full_response = base_response
 
-    try:
-        tts = gTTS(text=full_response, lang='en')
-        audio_file = f"tts_{uuid.uuid4().hex}.mp3"
-        tts.save(audio_file)
-
-        with open(audio_file, "rb") as f:
-            audio_bytes = f.read()
-            st.audio(audio_bytes, format="audio/mp3")
-
-        if AudioSegment:
-            duration = AudioSegment.from_file(audio_file).duration_seconds
-            time.sleep(duration + 0.5)
-
-        os.remove(audio_file)
-    except Exception as e:
-        st.error(f"TTS error: {e}")
-
-    st.session_state.chat_log.append(("🧠", full_response))
+    st.session_state.chat_log.append(("KCET Assistant", full_response, "Assistant"))
     st.rerun()
 
 # --- Display Chat ---
 st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
-for speaker, msg in st.session_state.chat_log:
-    align = 'right' if speaker == '👤' else 'left'
-    bg = user_bg if speaker == '👤' else bot_bg
-    avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker == "👤" else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
+for speaker, msg, role in st.session_state.chat_log:
+    align = 'right' if speaker == st.session_state.user_profile["name"] else 'left'
+    avatar = st.session_state.user_profile["avatar"] if speaker == st.session_state.user_profile["name"] else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
+    if speaker == st.session_state.user_profile["name"]:
+        bg = st.session_state.user_profile["color"]
+        txt = st.session_state.user_profile["text_color"]
+    else:
+        bg = "#d1d1e9"
+        txt = "#000"
     safe_msg = msg.encode("ascii", errors="ignore").decode("ascii")
     st.markdown(f"""
-    <div class='message' style='background-color:{bg}; text-align:{align}; color:{text_color};'>
+    <div class='message' style='background-color:{bg}; text-align:{align}; color:{txt};'>
         <img src='{avatar}' class='avatar'/>
-        <div><b>{speaker}</b>: {safe_msg}</div>
+        <div><b>{speaker}</b> ({role}): {safe_msg}</div>
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
+# --- Export Button ---
 if export_option:
     st.subheader("📤 Export Chat")
     email = st.text_input("Email Address")
-    file_type = st.selectbox("Choose file format", ["PDF", "TXT", "DOC"])
-    custom_name = st.text_input("Enter custom file name (without extension)")
-    if st.button("Send"):
-        if not email or "@" not in email:
-            st.error("Please enter a valid email address.")
-        else:
-            filename = custom_name or f"kcet_chat_{uuid.uuid4().hex}"
-            attachment_path = ""
-            try:
-                if file_type == "PDF":
-                    pdf = FPDF()
-                    pdf.add_page()
-                    pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
-                    pdf.set_font("DejaVu", size=12)
-                    for speaker, msg in st.session_state.chat_log:
-                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        clean_msg = msg.encode("ascii", errors="ignore").decode("ascii")
-                        pdf.multi_cell(0, 10, f"[{timestamp}] {speaker}: {clean_msg}")
-                    attachment_path = f"{filename}.pdf"
-                    pdf.output(attachment_path)
+    if st.button("Send PDF Report"):
+        try:
+            filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
+            pdf.set_font("DejaVu", size=12)
 
-                elif file_type == "TXT":
-                    attachment_path = f"{filename}.txt"
-                    with open(attachment_path, "w", encoding="utf-8") as f:
-                        for speaker, msg in st.session_state.chat_log:
-                            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                            clean_msg = msg.encode("ascii", errors="ignore").decode("ascii")
-                            f.write(f"[{timestamp}] {speaker}: {clean_msg}\n")
+            # Add KCET logo
+            logo_path = "kcet_logo.png"
+            if os.path.exists(logo_path):
+                pdf.image(logo_path, x=10, y=8, w=30)
+                pdf.ln(20)
 
-                elif file_type == "DOC":
-                    attachment_path = f"{filename}.doc"
-                    with open(attachment_path, "w", encoding="utf-8") as f:
-                        for speaker, msg in st.session_state.chat_log:
-                            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                            clean_msg = msg.encode("ascii", errors="ignore").decode("ascii")
-                            f.write(f"[{timestamp}] {speaker}: {clean_msg}\n")
+            pdf.cell(200, 10, txt="KCET Assistant Chat Log", ln=True, align="C")
+            pdf.cell(200, 10, txt=f"Name: {st.session_state.user_profile['name']}  Role: {st.session_state.user_profile['role']}", ln=True, align="C")
+            pdf.ln(5)
 
-                msg = EmailMessage()
-                msg['Subject'] = f"{BOT_NAME} Chat Log"
-                msg['From'] = SENDER_EMAIL
-                msg['To'] = email
-                msg.set_content(f"Here is your chat log with {BOT_NAME}.")
+            for speaker, msg, role in st.session_state.chat_log:
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                msg_clean = msg.encode("ascii", errors="ignore").decode("ascii")
+                pdf.multi_cell(0, 10, f"[{timestamp}] {speaker} ({role}): {msg_clean}")
 
-                with open(attachment_path, "rb") as f:
-                    maintype, subtype = ("application", "octet-stream")
-                    if file_type == "PDF":
-                        subtype = "pdf"
-                    elif file_type == "TXT":
-                        subtype = "plain"
-                    elif file_type == "DOC":
-                        subtype = "msword"
-                    msg.add_attachment(f.read(), maintype=maintype, subtype=subtype, filename=os.path.basename(attachment_path))
+            pdf.output(filename)
 
-                with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-                    smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
-                    smtp.send_message(msg)
+            msg = EmailMessage()
+            msg['Subject'] = "KCET Chat Log"
+            msg['From'] = sender_email
+            msg['To'] = email
+            msg.set_content("Here is your chat log with the KCET Assistant.")
 
-                st.success("✅ Email sent successfully!")
+            with open(filename, "rb") as f:
+                msg.add_attachment(f.read(), maintype="application", subtype="pdf", filename=filename)
 
-            except Exception as e:
-                st.error(f"Email error: {e}")
-            finally:
-                if os.path.exists(attachment_path):
-                    os.remove(attachment_path)
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                smtp.login(sender_email, sender_password)
+                smtp.send_message(msg)
 
-if st.button("🧹 Clear Chat"):
-    st.session_state.chat_log = [("🧠", f"Hello! I'm {BOT_NAME}. Ask me anything.")]
-    st.rerun()
+            st.success("✅ Email sent successfully!")
+            os.remove(filename)
+        except Exception as e:
+            st.error(f"❌ Email Error: {e}")
