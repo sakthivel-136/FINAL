@@ -108,6 +108,18 @@ vectorizer, vectors, df = load_vector_data()
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("🧠", "Hello! I'm your KCET Assistant. Ask me anything.")]
 
+if history_toggle:
+    st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
+    for speaker, msg in st.session_state.chat_log:
+        align = 'right' if speaker == '👤' else 'left'
+        bg = user_bg if speaker == '👤' else bot_bg
+        avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker == "👤" else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
+        st.markdown(f"""
+        <div class='message' style='background-color:{bg}; text-align:{align}; color:{text_color};'>
+            <img src='{avatar}' class='avatar'/>
+            <div><b>{speaker}</b>: {msg}</div>
+        </div>""", unsafe_allow_html=True)
+
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
@@ -128,15 +140,8 @@ if submitted and user_input.strip():
         audio_file = f"tts_{uuid.uuid4().hex}.mp3"
         tts.save(audio_file)
 
-        with open(audio_file, "rb") as f:
-            audio_bytes = f.read()
-            b64 = base64.b64encode(audio_bytes).decode()
-            audio_html = f"""
-                <audio autoplay>
-                    <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
-                </audio>
-            """
-            st.markdown(audio_html, unsafe_allow_html=True)
+        audio_bytes = open(audio_file, "rb").read()
+        st.audio(audio_bytes, format="audio/mp3", start_time=0)
 
         if AudioSegment:
             duration = AudioSegment.from_file(audio_file).duration_seconds
@@ -148,18 +153,6 @@ if submitted and user_input.strip():
 
     st.session_state.chat_log.append(("🧠", full_response))
     st.rerun()
-
-if history_toggle:
-    st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
-    for speaker, msg in st.session_state.chat_log:
-        align = 'right' if speaker == '👤' else 'left'
-        bg = user_bg if speaker == '👤' else bot_bg
-        avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker == "👤" else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
-        st.markdown(f"""
-        <div class='message' style='background-color:{bg}; text-align:{align}; color:{text_color};'>
-            <img src='{avatar}' class='avatar'/>
-            <div><b>{speaker}</b>: {msg}</div>
-        </div>""", unsafe_allow_html=True)
 
 if export_option:
     st.subheader("📤 Export Chat")
