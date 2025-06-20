@@ -2,14 +2,39 @@ import streamlit as st
 import pandas as pd
 import pickle
 import os
+import smtplib
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from fpdf import FPDF
 from gtts import gTTS
+from email.message import EmailMessage
 import tempfile
 import base64
 
-# ========== Voice Output ==========
+# ========== EMAIL CREDENTIALS ==========
+SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"  # 🔁 Replace with your Gmail
+SENDER_PASSWORD = "vwvc wsff fbrv umzh "  # 🔁 Use app password only!
+
+# ========== SEND EMAIL FUNCTION ==========
+def send_email(recipient_email, subject, body, attachment_path):
+    msg = EmailMessage()
+    msg['Subject'] = subject
+    msg['From'] = SENDER_EMAIL
+    msg['To'] = recipient_email
+    msg.set_content(body)
+
+    with open(attachment_path, 'rb') as f:
+        msg.add_attachment(f.read(), maintype='application', subtype='pdf', filename='KCET_Chat_Report.pdf')
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
+            smtp.send_message(msg)
+        return True
+    except Exception as e:
+        return str(e)
+
+# ========== VOICE OUTPUT ==========
 def speak_text(text):
     tts = gTTS(text=text, lang='en')
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
@@ -29,25 +54,21 @@ threshold = 0.6
 
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-# ========== Sidebar Settings ==========
+# ========== Sidebar ==========
 with st.sidebar:
     st.title("⚙️ Settings")
     mode = st.radio("Theme", ["Dark", "Light"], index=0)
     is_dark = mode == "Dark"
-
     st.session_state.user_name = st.text_input("👤 Your Name", value=st.session_state.get("user_name", "Shakthivel"))
-    st.session_state.user_bubble_color = st.color_picker("🎨 User Bubble", value=st.session_state.get("user_bubble_color", "#d0e8f2"))
-    st.session_state.assistant_bubble_color = st.color_picker("🎨 Assistant Bubble", value=st.session_state.get("assistant_bubble_color", "#d1d1e9"))
-
+    st.session_state.user_bubble_color = st.color_picker("🎨 User Bubble", "#d0e8f2")
+    st.session_state.assistant_bubble_color = st.color_picker("🎨 Assistant Bubble", "#d1d1e9")
     if "txt_color" not in st.session_state:
         st.session_state.txt_color = "#000000"
-    new_color = st.color_picker("🖋️ Text Color", value=st.session_state.txt_color)
+    new_color = st.color_picker("🖋️ Text Color", st.session_state.txt_color)
     if new_color != st.session_state.txt_color:
         st.session_state.txt_color = new_color
         st.session_state.color_changed = True
-    else:
-        st.session_state.color_changed = False
-
+        st.experimental_rerun()
     export_option = st.checkbox("📤 Enable Export")
 
 bg_color = "#111" if is_dark else "#fff"
@@ -141,7 +162,7 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# ========== Chat State ==========
+# ========== Chat Session ==========
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
@@ -177,9 +198,13 @@ st.markdown("</div>", unsafe_allow_html=True)
 if export_option:
     st.subheader("📤 Export Chat")
     file_type = st.radio("File Type", ["PDF", "TXT", "DOC"], index=0)
-    if st.button("Download"):
+    email = st.text_input("📧 Email (only for PDF)", placeholder="example@gmail.com")
+
+    if st.button("Download / Email"):
         try:
             filename = f"{user_name}_chatlog.{file_type.lower()}"
+            file_path = None
+
             if file_type == "PDF":
                 pdf = FPDF()
                 pdf.add_page()
@@ -196,23 +221,28 @@ if export_option:
                 pdf.set_font("Arial", '', 12)
                 for speaker, msg, role in st.session_state.chat_log:
                     pdf.multi_cell(0, 10, f"{speaker} ({role}): {msg.replace('\xa0', ' ')}")
+
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                     pdf.output(tmp.name)
-                    with open(tmp.name, "rb") as f:
+                    file_path = tmp.name
+                    with open(file_path, "rb") as f:
                         st.download_button("📥 Download", f.read(), file_name=filename, mime="application/pdf")
+
             else:
                 text = "\n".join([f"{s} ({r}): {m}" for s, m, r in st.session_state.chat_log])
                 mime = "application/msword" if file_type == "DOC" else "text/plain"
                 st.download_button("📥 Download", text.encode(), file_name=filename, mime=mime)
+
+            if email and file_path:
+                result = send_email(email, f"{user_name} Chat Log", "Attached is your KCET chat log report.", file_path)
+                if result is True:
+                    st.success("✅ Email sent to " + email)
+                else:
+                    st.error(f"❌ Email failed: {result}")
         except Exception as e:
             st.error(f"❌ Export failed: {e}")
 
-# ========== Clear Chat ==========
+# ========== Clear ==========
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
     st.rerun()
-
-# ========== Safe Rerun for Color ==========
-if st.session_state.get("color_changed"):
-    st.session_state.color_changed = False
-    st.experimental_rerun()
