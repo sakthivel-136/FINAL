@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import pickle
@@ -177,35 +178,47 @@ st.markdown("</div>", unsafe_allow_html=True)
 if export_option:
     st.subheader("📤 Export Chat")
     email = st.text_input("Email Address")
-    if st.button("Send PDF Report"):
+    file_type = st.radio("Which type of file do you want to mail?", ["PDF", "TXT", "DOC"], index=0)
+    if st.button("Send Chat Log via Email"):
         if not email or "@" not in email:
             st.error("❌ Please enter a valid email address.")
         else:
             try:
-                filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
-                pdf.set_font("DejaVu", size=12)
-
-                pdf.cell(200, 10, txt="KCET Assistant Chat Log", ln=True, align="C")
-                pdf.ln(5)
-
-                for speaker, msg, role in st.session_state.chat_log:
-                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    msg_clean = msg.replace('\xa0', ' ')
-                    pdf.multi_cell(0, 10, f"[{timestamp}] {speaker} ({role}): {msg_clean}")
-
-                pdf.output(filename)
+                filename = f"kcet_chat_{uuid.uuid4().hex}.{file_type.lower()}"
+                if file_type == "PDF":
+                    pdf = FPDF()
+                    pdf.add_page()
+                    pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
+                    pdf.set_font("DejaVu", size=12)
+                    pdf.cell(200, 10, txt="KCET Assistant Chat Log", ln=True, align="C")
+                    pdf.ln(5)
+                    for speaker, msg, role in st.session_state.chat_log:
+                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        msg_clean = msg.replace('\xa0', ' ')
+                        pdf.multi_cell(0, 10, f"[{timestamp}] {speaker} ({role}): {msg_clean}")
+                    pdf.output(filename)
+                else:
+                    with open(filename, "w", encoding="utf-8") as f:
+                        for speaker, msg, role in st.session_state.chat_log:
+                            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            msg_clean = msg.replace('\xa0', ' ')
+                            f.write(f"[{timestamp}] {speaker} ({role}): {msg_clean}\n")
 
                 msg = EmailMessage()
                 msg['Subject'] = "KCET Chat Log"
                 msg['From'] = sender_email
                 msg['To'] = email
-                msg.set_content("Here is your chat log with the KCET Assistant.".encode('utf-8', 'ignore').decode('utf-8'))
+                msg.set_content("Here is your chat log with the KCET Assistant.")
 
                 with open(filename, "rb") as f:
-                    msg.add_attachment(f.read(), maintype="application", subtype="pdf", filename=filename)
+                    maintype, subtype = ("application", "octet-stream")
+                    if file_type == "PDF":
+                        subtype = "pdf"
+                    elif file_type == "TXT":
+                        subtype = "plain"
+                    elif file_type == "DOC":
+                        subtype = "msword"
+                    msg.add_attachment(f.read(), maintype=maintype, subtype=subtype, filename=filename.encode("ascii", "ignore").decode("ascii"))
 
                 with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
                     smtp.login(sender_email, sender_password)
