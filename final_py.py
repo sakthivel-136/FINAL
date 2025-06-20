@@ -17,7 +17,7 @@ tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
 sender_email = "kamarajengg.edu.in@gmail.com"
-sender_password = "your_app_password_here"
+sender_password = "vwvc wsff fbrv umzh"
 
 # --- Streamlit Page ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
