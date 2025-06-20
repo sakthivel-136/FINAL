@@ -11,3 +11,5 @@ fpdf
 uuid
 secure-smtplib
 pydub
+gtts
+
