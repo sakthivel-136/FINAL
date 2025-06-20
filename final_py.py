@@ -3,6 +3,7 @@ import pandas as pd
 import pickle
 import os
 import uuid
+import io
 from datetime import datetime
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -116,21 +117,23 @@ for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if speaker == "You" else 'left'
     bg = "#d0e8f2" if speaker == "You" else "#d1d1e9"
     txt = "#000"
-    msg_clean = msg.replace('\xa0', ' ')  # Fix encoding issues
+    msg_clean = msg.replace('\xa0', ' ')  # fix encoding
     st.markdown(f"""
     <div class='message' style='background-color:{bg}; text-align:{align}; color:{txt};'>
         <div><b>{speaker}</b> ({role}): {msg_clean}</div>
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Export Chat (Local Save Only) ---
+# --- Export Chat Log with Download Button ---
 if export_option:
-    st.subheader("📤 Export Chat Locally")
-    file_type = st.radio("Choose file type to export:", ["PDF", "TXT", "DOC"], index=0)
+    st.subheader("📥 Download Chat Log to Your Device")
+    file_type = st.radio("Choose file type to download:", ["PDF", "TXT", "DOC"], index=0)
 
-    if st.button("Download Chat Log"):
-        filename = f"kcet_chat_{uuid.uuid4().hex}.{file_type.lower()}"
+    if st.button("Generate File"):
         try:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"kcet_chat_{timestamp}.{file_type.lower()}"
+
             if file_type == "PDF":
                 pdf = FPDF()
                 pdf.add_page()
@@ -138,21 +141,34 @@ if export_option:
                 pdf.set_font("DejaVu", size=12)
                 pdf.cell(200, 10, txt="KCET Assistant Chat Log", ln=True, align="C")
                 pdf.ln(5)
+
                 for speaker, msg, role in st.session_state.chat_log:
-                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     msg_clean = msg.replace('\xa0', ' ')
-                    pdf.multi_cell(0, 10, f"[{timestamp}] {speaker} ({role}): {msg_clean}")
-                pdf.output(filename)
-                st.success(f"✅ PDF saved as `{filename}`")
+                    line = f"{speaker} ({role}): {msg_clean}"
+                    pdf.multi_cell(0, 10, line)
+
+                pdf_buffer = io.BytesIO()
+                pdf.output(pdf_buffer)
+                pdf_data = pdf_buffer.getvalue()
+
+                st.download_button(label="📥 Download PDF",
+                                   data=pdf_data,
+                                   file_name=filename,
+                                   mime="application/pdf")
             else:
-                with open(filename, "w", encoding="utf-8") as f:
-                    for speaker, msg, role in st.session_state.chat_log:
-                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        msg_clean = msg.replace('\xa0', ' ')
-                        f.write(f"[{timestamp}] {speaker} ({role}): {msg_clean}\n")
-                st.success(f"✅ File saved as `{filename}`")
+                text_data = ""
+                for speaker, msg, role in st.session_state.chat_log:
+                    msg_clean = msg.replace('\xa0', ' ')
+                    line = f"{speaker} ({role}): {msg_clean}\n"
+                    text_data += line
+
+                mime_type = "text/plain" if file_type == "TXT" else "application/msword"
+                st.download_button(label=f"📥 Download {file_type}",
+                                   data=text_data,
+                                   file_name=filename,
+                                   mime=mime_type)
         except Exception as e:
-            st.error(f"❌ Error while saving: {e}")
+            st.error(f"❌ Error generating file: {e}")
 
 # --- Clear Chat ---
 if st.button("🧹 Clear Chat"):
