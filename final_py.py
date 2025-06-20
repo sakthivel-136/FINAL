@@ -187,7 +187,11 @@ st.markdown("</div>", unsafe_allow_html=True)
 if export_option:
     st.subheader("📤 Export Chat")
     email = st.text_input("Email Address")
-    if st.button("Send PDF Report"):
+
+if st.button("Send PDF Report"):
+    if not email or "@" not in email:
+        st.error("❌ Please enter a valid email address.")
+    else:
         try:
             filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
             pdf = FPDF()
@@ -204,9 +208,10 @@ if export_option:
 
             pdf.output(filename)
 
+            # Setup email
             msg = EmailMessage()
             msg['Subject'] = "KCET Chat Log"
-            msg['From'] = sender_email
+            msg['From'] = "kamarajengg.edu.in@gmail.com"
             msg['To'] = email
             msg.set_content("Here is your chat log with the KCET Assistant.")
 
@@ -214,10 +219,12 @@ if export_option:
                 msg.add_attachment(f.read(), maintype="application", subtype="pdf", filename=filename)
 
             with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-                smtp.login(sender_email, sender_password)
+                smtp.login("kamarajengg.edu.in@gmail.com", "your_app_password")
                 smtp.send_message(msg)
 
             st.success("✅ Email sent successfully!")
             os.remove(filename)
+
         except Exception as e:
             st.error(f"❌ Email Error: {e}")
+
