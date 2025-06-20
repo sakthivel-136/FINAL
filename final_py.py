@@ -3,19 +3,13 @@ import pandas as pd
 import pickle
 import os
 import uuid
-import smtplib
 from datetime import datetime
-from email.message import EmailMessage
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from fpdf import FPDF
 from gtts import gTTS
 import tempfile
 import base64
-
-# =============== Secure Credentials ===============
-SENDER_EMAIL =("kamarajengg.edu.in@gmail.com")
-SENDER_PASSWORD =("vwvc wsff fbrv umzh ")
 
 # =============== Voice Output ===============
 def speak_text(text):
@@ -29,24 +23,6 @@ def speak_text(text):
             </audio>
         """
         st.markdown(audio_html, unsafe_allow_html=True)
-
-# =============== Email Sender ===============
-def send_email(recipient_email, subject, body, attachment_path):
-    msg = EmailMessage()
-    msg['Subject'] = subject
-    msg['From'] = SENDER_EMAIL
-    msg['To'] = recipient_email
-    msg.set_content(body.replace('\xa0', ' '))
-
-    try:
-        with open(attachment_path, 'rb') as f:
-            msg.add_attachment(f.read(), maintype='application', subtype='pdf', filename=os.path.basename(attachment_path))
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
-            smtp.send_message(msg)
-        return True
-    except Exception as e:
-        return str(e)
 
 # =============== Constants ===============
 tf_vector_file = "vectorized.pkl"
@@ -193,13 +169,12 @@ for speaker, msg, role in st.session_state.chat_log:
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# =============== Export Chat ===============
+# =============== Export Chat (No Email) ===============
 if export_option:
     st.subheader("📤 Export Chat")
     file_type = st.radio("File Type", ["PDF", "TXT", "DOC"], index=0)
-    email = st.text_input("📧 Email (optional)", placeholder="example@gmail.com")
 
-    if st.button("Download / Email"):
+    if st.button("Download"):
         try:
             filename = f"{user_name}_chatlog.{file_type.lower()}"
             if file_type == "PDF":
@@ -220,23 +195,12 @@ if export_option:
                     pdf.multi_cell(0, 10, f"{speaker} ({role}): {msg.replace('\xa0', ' ')}")
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                     pdf.output(tmp.name)
-                    file_path = tmp.name
-                    with open(file_path, "rb") as f:
+                    with open(tmp.name, "rb") as f:
                         st.download_button("📥 Download", f.read(), file_name=filename, mime="application/pdf")
             else:
                 text = "\n".join([f"{s} ({r}): {m}" for s, m, r in st.session_state.chat_log])
                 mime = "application/msword" if file_type == "DOC" else "text/plain"
                 st.download_button("📥 Download", text.encode(), file_name=filename, mime=mime)
-                file_path = filename
-                with open(file_path, "wb") as f:
-                    f.write(text.encode())
-
-            if email and "@" in email:
-                result = send_email(email, f"{user_name} Chat Log", "Attached is your chat log.", file_path)
-                if result is True:
-                    st.success("✅ Email sent!")
-                else:
-                    st.error(f"❌ Email error: {result}")
         except Exception as e:
             st.error(f"❌ Export failed: {e}")
 
