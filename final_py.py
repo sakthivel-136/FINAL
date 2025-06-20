@@ -18,7 +18,7 @@ tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
 sender_email = "kamarajengg.edu.in@gmail.com"
-sender_password = "vwvc wsff fbrv umzh"  # Replace with your actual app password
+sender_password = "vwvc wsff fbrv umzh"
 profile_file = "user_profile.json"
 
 # --- Streamlit Page ---
@@ -174,12 +174,17 @@ st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if speaker == st.session_state.user_profile["name"] else 'left'
     avatar = st.session_state.user_profile["avatar"] if speaker == st.session_state.user_profile["name"] else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
-    bg = st.session_state.user_profile["color"] if speaker == st.session_state.user_profile["name"] else "#d1d1e9"
-    txt = st.session_state.user_profile["text_color"] if speaker == st.session_state.user_profile["name"] else "#000"
+    if speaker == st.session_state.user_profile["name"]:
+        bg = st.session_state.user_profile["color"]
+        txt = st.session_state.user_profile["text_color"]
+    else:
+        bg = "#d1d1e9"
+        txt = "#000"
+    msg_clean = msg.encode("ascii", errors="ignore").decode("ascii")
     st.markdown(f"""
     <div class='message' style='background-color:{bg}; text-align:{align}; color:{txt};'>
         <img src='{avatar}' class='avatar'/>
-        <div><b>{speaker}</b> ({role}): {msg}</div>
+        <div><b>{speaker}</b> ({role}): {msg_clean}</div>
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -187,44 +192,46 @@ st.markdown("</div>", unsafe_allow_html=True)
 if export_option:
     st.subheader("📤 Export Chat")
     email = st.text_input("Email Address")
+    if st.button("Send PDF Report"):
+        if not email or "@" not in email:
+            st.error("❌ Please enter a valid email address.")
+        else:
+            try:
+                filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
+                pdf.set_font("DejaVu", size=12)
 
-if st.button("Send PDF Report"):
-    if not email or "@" not in email:
-        st.error("❌ Please enter a valid email address.")
-    else:
-        try:
-            filename = f"kcet_chat_{uuid.uuid4().hex}.pdf"
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
-            pdf.set_font("DejaVu", size=12)
+                pdf.cell(200, 10, txt="KCET Assistant Chat Log", ln=True, align="C")
+                pdf.ln(5)
 
-            pdf.cell(200, 10, txt="KCET Assistant Chat Log", ln=True, align="C")
-            pdf.ln(5)
+                for speaker, msg, role in st.session_state.chat_log:
+                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    msg_clean = msg.encode("ascii", errors="ignore").decode("ascii")
+                    pdf.multi_cell(0, 10, f"[{timestamp}] {speaker} ({role}): {msg_clean}")
 
-            for speaker, msg, role in st.session_state.chat_log:
-                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                pdf.multi_cell(0, 10, f"[{timestamp}] {speaker} ({role}): {msg}")
+                pdf.output(filename)
 
-            pdf.output(filename)
+                msg = EmailMessage()
+                msg['Subject'] = "KCET Chat Log"
+                msg['From'] = sender_email
+                msg['To'] = email
+                msg.set_content("Here is your chat log with the KCET Assistant.")
 
-            # Setup email
-            msg = EmailMessage()
-            msg['Subject'] = "KCET Chat Log"
-            msg['From'] = "kamarajengg.edu.in@gmail.com"
-            msg['To'] = email
-            msg.set_content("Here is your chat log with the KCET Assistant.")
+                with open(filename, "rb") as f:
+                    msg.add_attachment(f.read(), maintype="application", subtype="pdf", filename=filename)
 
-            with open(filename, "rb") as f:
-                msg.add_attachment(f.read(), maintype="application", subtype="pdf", filename=filename)
+                with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                    smtp.login(sender_email, sender_password)
+                    smtp.send_message(msg)
 
-            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-                smtp.login("kamarajengg.edu.in@gmail.com", "your_app_password")
-                smtp.send_message(msg)
+                st.success("✅ Email sent successfully!")
+                os.remove(filename)
+            except Exception as e:
+                st.error(f"❌ Email Error: {e}")
 
-            st.success("✅ Email sent successfully!")
-            os.remove(filename)
-
-        except Exception as e:
-            st.error(f"❌ Email Error: {e}")
-
+# --- Clear Chat ---
+if st.button("🧹 Clear Chat"):
+    st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
+    st.rerun()
