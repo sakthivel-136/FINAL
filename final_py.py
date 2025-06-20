@@ -180,7 +180,7 @@ for speaker, msg, role in st.session_state.chat_log:
     else:
         bg = "#d1d1e9"
         txt = "#000"
-    msg_clean = msg.encode("ascii", errors="ignore").decode("ascii")
+    msg_clean = msg.replace('\xa0', ' ')
     st.markdown(f"""
     <div class='message' style='background-color:{bg}; text-align:{align}; color:{txt};'>
         <img src='{avatar}' class='avatar'/>
@@ -208,7 +208,7 @@ if export_option:
 
                 for speaker, msg, role in st.session_state.chat_log:
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    msg_clean = msg.encode("ascii", errors="ignore").decode("ascii")
+                    msg_clean = msg.replace('\xa0', ' ')
                     pdf.multi_cell(0, 10, f"[{timestamp}] {speaker} ({role}): {msg_clean}")
 
                 pdf.output(filename)
