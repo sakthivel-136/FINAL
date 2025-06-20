@@ -3,8 +3,6 @@ import pandas as pd
 import pickle
 import os
 import uuid
-import time
-import base64
 import smtplib
 from datetime import datetime
 from email.message import EmailMessage
@@ -17,7 +15,7 @@ tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
 sender_email = "kamarajengg.edu.in@gmail.com"
-sender_password = "vwvc wsff fbrv umzh"
+sender_password = "your_app_password_here"  # Replace with your app password
 
 # --- Streamlit Page ---
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
@@ -91,6 +89,7 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
+# --- Session State Init ---
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
@@ -121,7 +120,7 @@ for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if speaker == "You" else 'left'
     bg = "#d0e8f2" if speaker == "You" else "#d1d1e9"
     txt = "#000"
-    msg_clean = msg.replace('\xa0', ' ')
+    msg_clean = msg.replace('\xa0', ' ')  # Removes non-breaking spaces
     st.markdown(f"""
     <div class='message' style='background-color:{bg}; text-align:{align}; color:{txt};'>
         <div><b>{speaker}</b> ({role}): {msg_clean}</div>
@@ -139,6 +138,8 @@ if export_option:
         else:
             try:
                 filename = f"kcet_chat_{uuid.uuid4().hex}.{file_type.lower()}"
+                safe_filename = ''.join(c if ord(c) < 128 else '_' for c in filename)
+
                 if file_type == "PDF":
                     pdf = FPDF()
                     pdf.add_page()
@@ -150,9 +151,9 @@ if export_option:
                         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         msg_clean = msg.replace('\xa0', ' ')
                         pdf.multi_cell(0, 10, f"[{timestamp}] {speaker} ({role}): {msg_clean}")
-                    pdf.output(filename)
+                    pdf.output(safe_filename)
                 else:
-                    with open(filename, "w", encoding="utf-8") as f:
+                    with open(safe_filename, "w", encoding="utf-8") as f:
                         for speaker, msg, role in st.session_state.chat_log:
                             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                             msg_clean = msg.replace('\xa0', ' ')
@@ -164,7 +165,7 @@ if export_option:
                 msg['To'] = email
                 msg.set_content("Here is your chat log with the KCET Assistant.")
 
-                with open(filename, "rb") as f:
+                with open(safe_filename, "rb") as f:
                     maintype, subtype = ("application", "octet-stream")
                     if file_type == "PDF":
                         subtype = "pdf"
@@ -172,7 +173,6 @@ if export_option:
                         subtype = "plain"
                     elif file_type == "DOC":
                         subtype = "msword"
-                    safe_filename = ''.join(c if ord(c) < 128 else '_' for c in filename)
                     msg.add_attachment(f.read(), maintype=maintype, subtype=subtype, filename=safe_filename)
 
                 with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
@@ -180,7 +180,7 @@ if export_option:
                     smtp.send_message(msg)
 
                 st.success("✅ Email sent successfully!")
-                os.remove(filename)
+                os.remove(safe_filename)
             except Exception as e:
                 st.error(f"❌ Email Error: {e}")
 
