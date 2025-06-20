@@ -14,19 +14,24 @@ from fpdf import FPDF
 # ✅ Email Credentials
 # --------------------------
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
-SENDER_PASSWORD = "vwvc wsff fbrv umzh"  # Use Gmail App Password only
+SENDER_PASSWORD = "vwvcwsfffbrvumzh"# 🔐 Use Gmail App Password
 
-# ✅ Reusable Email Function
+# ✅ Reusable Email Function (cleaned)
 def send_email(recipient_email, subject, body, attachment_path):
     msg = EmailMessage()
     msg['Subject'] = subject
     msg['From'] = SENDER_EMAIL
     msg['To'] = recipient_email
-    msg.set_content(body)
+    msg.set_content(body.replace('\xa0', ' '))  # Clean any non-breaking space
 
     try:
         with open(attachment_path, 'rb') as f:
-            msg.add_attachment(f.read(), maintype='application', subtype='pdf', filename=os.path.basename(attachment_path))
+            msg.add_attachment(
+                f.read(),
+                maintype='application',
+                subtype='pdf',
+                filename=os.path.basename(attachment_path)
+            )
 
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
@@ -176,15 +181,13 @@ if export_option:
                 for speaker, msg, role in st.session_state.chat_log:
                     msg_clean = msg.replace('\xa0', ' ')
                     text_data += f"{speaker} ({role}): {msg_clean}\n"
-                file_data = text_data.encode("utf-8")
+                file_data = text_data.encode("utf-8", "ignore")
                 download_data = file_data
                 mime = "application/msword" if file_type == "DOC" else "text/plain"
 
-            # ✅ Save for emailing
             with open(filename, "wb") as f:
                 f.write(download_data)
 
-            # ✅ Download
             st.download_button(
                 label=f"📥 Download {file_type}",
                 data=download_data,
@@ -192,21 +195,20 @@ if export_option:
                 mime=mime
             )
 
-            # ✅ Send email if email is valid
             if email and "@" in email:
                 subject = "KCET Assistant Chat Log"
                 body = "Please find the attached KCET Assistant chat log."
                 result = send_email(email, subject, body, filename)
-                if result == True:
+                if result is True:
                     st.success("✅ Email sent successfully!")
                 else:
                     st.error(f"❌ Failed to send email: {result}")
             elif email:
-                st.warning("⚠️ Invalid email format.")
+                st.warning("⚠️ Invalid email address.")
         except Exception as e:
             st.error(f"❌ Error: {e}")
 
-# --- Clear Chat Button ---
+# --- Clear Chat ---
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
     st.rerun()
