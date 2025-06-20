@@ -19,7 +19,7 @@ import base64
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
 SENDER_PASSWORD = "vwvcwsfffbrvumzh"
 
-# ✅ Voice output function
+# ✅ Voice output
 def speak_text(text):
     tts = gTTS(text=text, lang='en')
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
@@ -32,7 +32,7 @@ def speak_text(text):
         """
         st.markdown(audio_html, unsafe_allow_html=True)
 
-# ✅ Email sending function
+# ✅ Email sender
 def send_email(recipient_email, subject, body, attachment_path):
     msg = EmailMessage()
     msg['Subject'] = subject
@@ -49,30 +49,45 @@ def send_email(recipient_email, subject, body, attachment_path):
     except Exception as e:
         return str(e)
 
-# --- Config ---
+# --- File config
 tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
 
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-# --- Sidebar ---
+# ---------------------
+# SIDEBAR STARTS HERE
+# ---------------------
 with st.sidebar:
     st.title("⚙️ Settings")
-    mode = st.radio("Select Theme", ["Dark", "Light"], index=0)
-    export_option = st.checkbox("Enable Export Options")
 
-    # ✅ Username input
+    # Theme
+    mode = st.radio("Select Theme", ["Dark", "Light"], index=0)
+    is_dark = mode == "Dark"
+
+    # Name Input
     if "user_name" not in st.session_state:
         st.session_state.user_name = "Shakthivel"
     st.session_state.user_name = st.text_input("🧑 Your Name", value=st.session_state.user_name)
 
-user_name = st.session_state.user_name
-is_dark = mode == "Dark"
+    # Bubble Colors
+    st.markdown("🎨 Customize Chat Style")
+    user_bubble_color = st.color_picker("User Bubble Color", "#d0e8f2")
+    assistant_bubble_color = st.color_picker("Assistant Bubble Color", "#d1d1e9")
+    text_color = st.color_picker("Text Color", "#000000")
+
+    # Export toggle
+    export_option = st.checkbox("Enable Export Options")
+
+# Color values for page
 bg_color = "#111" if is_dark else "#fff"
 txt_color = "white" if is_dark else "black"
+user_name = st.session_state.user_name
 
-# --- Custom CSS + Title ---
+# ---------------------
+# HEADER SECTION
+# ---------------------
 st.markdown(f"""
 <style>
 .scrolling-banner {{
@@ -117,7 +132,9 @@ st.markdown(f"""
 <div class="chat-header">KCET Assistant</div>
 """, unsafe_allow_html=True)
 
-# --- Load Data ---
+# ---------------------
+# LOAD VECTOR DATA
+# ---------------------
 @st.cache_data
 def load_vector_data():
     if os.path.exists(tf_vector_file):
@@ -134,17 +151,21 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# --- Session State ---
+# Session memory
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
-# --- Chat Input ---
+# ---------------------
+# CHAT INPUT
+# ---------------------
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Type your question here...", label_visibility="collapsed")
     submitted = col2.form_submit_button("➤")
 
-# --- Chat Logic ---
+# ---------------------
+# CHAT LOGIC
+# ---------------------
 if submitted and user_input.strip():
     st.session_state.chat_log.append((user_name, user_input.strip(), "User"))
     vec = vectorizer.transform([user_input.lower()])
@@ -156,19 +177,23 @@ if submitted and user_input.strip():
     speak_text(base_response)
     st.rerun()
 
-# --- Display Chat ---
+# ---------------------
+# CHAT DISPLAY
+# ---------------------
 st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if role == "User" else 'left'
-    bg = "#d0e8f2" if role == "User" else "#d1d1e9"
+    bg = user_bubble_color if role == "User" else assistant_bubble_color
     msg_clean = msg.replace('\xa0', ' ')
     st.markdown(f"""
-    <div class='message' style='background-color:{bg}; text-align:{align}; color:#000;'>
+    <div class='message' style='background-color:{bg}; text-align:{align}; color:{text_color};'>
         <div><b>{speaker}</b> ({role}): {msg_clean}</div>
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Export Chat Log ---
+# ---------------------
+# EXPORT & EMAIL
+# ---------------------
 if export_option:
     st.subheader("📤 Export Chat")
     file_type = st.radio("Choose file type", ["PDF", "TXT", "DOC"], index=0)
@@ -224,7 +249,9 @@ if export_option:
         except Exception as e:
             st.error(f"❌ Error: {e}")
 
-# --- Clear Chat ---
+# ---------------------
+# CLEAR CHAT
+# ---------------------
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
     st.rerun()
