@@ -1,4 +1,4 @@
-import streamlit as st
+""import streamlit as st
 import pandas as pd
 import pickle
 import os
@@ -155,10 +155,11 @@ for speaker, msg in st.session_state.chat_log:
     align = 'right' if speaker == '👤' else 'left'
     bg = user_bg if speaker == '👤' else bot_bg
     avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" if speaker == "👤" else "https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
+    safe_msg = msg.encode("ascii", errors="ignore").decode("ascii")
     st.markdown(f"""
     <div class='message' style='background-color:{bg}; text-align:{align}; color:{text_color};'>
         <img src='{avatar}' class='avatar'/>
-        <div><b>{speaker}</b>: {msg}</div>
+        <div><b>{speaker}</b>: {safe_msg}</div>
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -181,7 +182,8 @@ if export_option:
                     pdf.set_font("DejaVu", size=12)
                     for speaker, msg in st.session_state.chat_log:
                         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        pdf.multi_cell(0, 10, f"[{timestamp}] {speaker}: {msg}")
+                        clean_msg = msg.encode("ascii", errors="ignore").decode("ascii")
+                        pdf.multi_cell(0, 10, f"[{timestamp}] {speaker}: {clean_msg}")
                     attachment_path = f"{filename}.pdf"
                     pdf.output(attachment_path)
 
@@ -190,14 +192,16 @@ if export_option:
                     with open(attachment_path, "w", encoding="utf-8") as f:
                         for speaker, msg in st.session_state.chat_log:
                             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                            f.write(f"[{timestamp}] {speaker}: {msg}\n")
+                            clean_msg = msg.encode("ascii", errors="ignore").decode("ascii")
+                            f.write(f"[{timestamp}] {speaker}: {clean_msg}\n")
 
                 elif file_type == "DOC":
                     attachment_path = f"{filename}.doc"
                     with open(attachment_path, "w", encoding="utf-8") as f:
                         for speaker, msg in st.session_state.chat_log:
                             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                            f.write(f"[{timestamp}] {speaker}: {msg}\n")
+                            clean_msg = msg.encode("ascii", errors="ignore").decode("ascii")
+                            f.write(f"[{timestamp}] {speaker}: {clean_msg}\n")
 
                 msg = EmailMessage()
                 msg['Subject'] = "KCET Chat Log"
