@@ -128,8 +128,15 @@ if submitted and user_input.strip():
         audio_file = f"tts_{uuid.uuid4().hex}.mp3"
         tts.save(audio_file)
 
-        audio_bytes = open(audio_file, "rb").read()
-        st.audio(audio_bytes, format="audio/mp3", start_time=0)
+        with open(audio_file, "rb") as f:
+            audio_bytes = f.read()
+            b64 = base64.b64encode(audio_bytes).decode()
+            audio_html = f"""
+                <audio autoplay>
+                    <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+                </audio>
+            """
+            st.markdown(audio_html, unsafe_allow_html=True)
 
         if AudioSegment:
             duration = AudioSegment.from_file(audio_file).duration_seconds
