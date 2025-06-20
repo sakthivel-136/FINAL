@@ -130,17 +130,11 @@ if submitted and user_input.strip():
 
         with open(audio_file, "rb") as f:
             audio_bytes = f.read()
-            b64 = base64.b64encode(audio_bytes).decode()
-            audio_html = f"""
-                <audio autoplay>
-                    <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
-                </audio>
-            """
-            st.markdown(audio_html, unsafe_allow_html=True)
+            st.audio(audio_bytes, format="audio/mp3")
 
         if AudioSegment:
             duration = AudioSegment.from_file(audio_file).duration_seconds
-            time.sleep(math.ceil(duration))
+            time.sleep(duration + 0.5)
 
         os.remove(audio_file)
     except Exception as e:
