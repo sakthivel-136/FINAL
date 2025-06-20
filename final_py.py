@@ -17,8 +17,8 @@ from fpdf import FPDF
 tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
-sender_email = ["kamarajengg.edu.in@Gmail.com"]
-sender_password = ["vwvc wsff fbrv umzh "]
+sender_email = ("kamarajengg.edu.in@Gmail.com")
+sender_password = ("vwvc wsff fbrv umzh ")
 profile_file = "user_profile.json"
 
 # --- Streamlit Page ---
