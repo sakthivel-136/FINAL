@@ -113,7 +113,7 @@ st.markdown(f"""
   100% {{ transform: translateX(-100%); }}
 }
 </style>
-""", unsafe_allow_html=True)
+""".replace("{{", "{").replace("}}", "}"), unsafe_allow_html=True)
 
 with st.form("chat_form", clear_on_submit=True):
     user_input = st.text_input("Ask your question...")
