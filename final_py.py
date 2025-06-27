@@ -62,8 +62,11 @@ def export_chat_to_bilingual_pdf():
     pdf.add_font("NotoTamil", "", "NotoSansTamil-Regular.ttf", uni=True)
     pdf.set_font("NotoTamil", size=12)
     pdf.set_text_color(0)
-    pdf.multi_cell(0, 10, "KCET Chat History (English ⇄ Tamil)", align="C")
-    pdf.ln(5)
+    if os.path.exists("kcet_logo.png"):
+        pdf.image("kcet_logo.png", x=10, y=8, w=20, h=20)
+    pdf.set_xy(35, 10)
+    pdf.cell(0, 10, "KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY", ln=True)
+    pdf.ln(10)
     for speaker, msg, role in st.session_state.original_log:
         try:
             translated = GoogleTranslator(source='en', target='ta').translate(msg) if st.session_state.language == 'en' else GoogleTranslator(source='ta', target='en').translate(msg)
@@ -121,7 +124,10 @@ if "trigger_rerun" not in st.session_state:
     st.session_state.trigger_rerun = False
 
 st.markdown("""
-    <h1 style='text-align: center; color: #4CAF50;'>KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</h1>
+    <div style='display:flex; align-items:center; justify-content:center;'>
+        <img src='data:image/png;base64,""" + base64.b64encode(open("kcet_logo.png", "rb").read()).decode() + """' style='width:50px; height:50px; margin-right:10px;'>
+        <h1 style='color: #4CAF50; display:inline-block;'>KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</h1>
+    </div>
     <div style="overflow:hidden; white-space:nowrap; animation:scroll-left 12s linear infinite; background:#333; color:white; padding:8px;">
         💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
     </div>
