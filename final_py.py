@@ -58,6 +58,23 @@ tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
 
+# ========== Load Vectorized Data ==========
+@st.cache_data
+def load_vector_data():
+    if os.path.exists(tf_vector_file):
+        with open(tf_vector_file, "rb") as f:
+            vectorizer, vectors, df = pickle.load(f)
+    else:
+        df = pd.read_csv(csv_file)
+        df['Question'] = df['Question'].str.lower().str.strip()
+        vectorizer = TfidfVectorizer()
+        vectors = vectorizer.fit_transform(df['Question'])
+        with open(tf_vector_file, "wb") as f:
+            pickle.dump((vectorizer, vectors, df), f)
+    return vectorizer, vectors, df
+
+vectorizer, vectors, df = load_vector_data()
+
 # ========== Translation Support ==========
 def translate_text(text, lang):
     try:
