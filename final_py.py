@@ -56,19 +56,28 @@ def send_email(recipient_emails, subject, body, attachment_path):
         return str(e)
 
 # ========== Export Bilingual PDF ==========
+from fpdf import FPDF
+
 def export_chat_to_bilingual_pdf():
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", 'B', 14)
+    pdf.add_font("NotoTamil", "", "NotoSansTamil-Regular.ttf", uni=True)
+    pdf.set_font("NotoTamil", size=12)
+
+    pdf.set_text_color(0)
     pdf.cell(0, 10, "KCET Chat History (English ⇄ Tamil)", ln=True, align="C")
-    pdf.set_font("Arial", '', 12)
 
     for speaker, msg, role in st.session_state.original_log:
-        translated = GoogleTranslator(source='en', target='ta').translate(msg) if st.session_state.language == 'en' else GoogleTranslator(source='ta', target='en').translate(msg)
+        try:
+            translated = GoogleTranslator(source='en', target='ta').translate(msg) if st.session_state.language == 'en' else GoogleTranslator(source='ta', target='en').translate(msg)
+        except:
+            translated = "[Translation failed]"
+
         english = msg if st.session_state.language == 'en' else translated
         tamil = translated if st.session_state.language == 'en' else msg
-        pdf.multi_cell(0, 8, f"{speaker} ({role}):\nEN: {english}\nTA: {tamil}\n", border=0)
-        pdf.ln(1)
+
+        pdf.multi_cell(0, 10, f"{speaker} ({role}):\nEN: {english}\nTA: {tamil}", border=0)
+        pdf.ln(2)
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         pdf.output(tmp.name)
@@ -113,6 +122,9 @@ if "language" not in st.session_state:
 if "original_log" not in st.session_state:
     st.session_state.original_log = []
 
+if "trigger_rerun" not in st.session_state:
+    st.session_state.trigger_rerun = False
+
 st.markdown("""
     <h1 style='text-align: center; color: #4CAF50;'>KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</h1>
     <div style="overflow:hidden; white-space:nowrap; animation:scroll-left 12s linear infinite; background:#333; color:white; padding:8px;">
@@ -128,18 +140,18 @@ st.markdown("""
 
 col1, col2 = st.columns([1, 1])
 with col1:
-    lang_toggle = st.button("🔄 Translate to Tamil" if st.session_state.language == "en" else "🖙 Back to English")
+    lang_toggle = st.button("🔄 Translate to Tamil" if st.session_state.language == "en" else "🔙 Back to English")
 
 with col2:
     clear_chat = st.button("🧹 Clear Chat")
 
 if lang_toggle:
     st.session_state.language = "ta" if st.session_state.language == "en" else "en"
-    st.experimental_rerun()
+    st.session_state.trigger_rerun = True
 
 if clear_chat:
     st.session_state.original_log = []
-    st.experimental_rerun()
+    st.session_state.trigger_rerun = True
 
 with st.form("chat_form", clear_on_submit=True):
     user_input = st.text_input("Ask your question...")
@@ -186,3 +198,8 @@ with st.expander("📄 Export Chat and Email"):
                 st.success("✅ Sent successfully to all recipients")
             else:
                 st.error(f"❌ Email error: {result}")
+
+# Handle rerun if requested
+if st.session_state.get("trigger_rerun"):
+    st.session_state.trigger_rerun = False
+    st.experimental_rerun()
