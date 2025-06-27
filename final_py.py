@@ -128,9 +128,9 @@ if submitted and user_input.strip():
         answer = GoogleTranslator(source='en', target='ta').translate(answer)
     st.session_state.original_log.append(("KCET Assistant", answer, "Assistant"))
     with st.spinner("KCET Assistant typing..."):
-    time.sleep(min(1.5, len(answer)/20))
-    speak_text(answer)
-    st.success(answer)
+        time.sleep(min(1.5, len(answer)/20))
+        speak_text(answer)
+        st.success(answer)
 
 
 # Translate All Messages
