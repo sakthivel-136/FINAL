@@ -141,10 +141,12 @@ with col2:
 if lang_toggle:
     st.session_state.language = "ta" if st.session_state.language == "en" else "en"
     st.session_state.trigger_rerun = True
+    st.stop()
 
 if clear_chat:
     st.session_state.original_log = []
     st.session_state.trigger_rerun = True
+    st.stop()
 
 with st.form("chat_form", clear_on_submit=True):
     user_input = st.text_input("Ask your question...", label_visibility="collapsed")
@@ -191,8 +193,3 @@ with st.expander("📄 Export Chat and Email"):
                 st.success("✅ Sent successfully to all recipients")
             else:
                 st.error(f"❌ Email error: {result}")
-
-# Handle rerun if requested
-if st.session_state.get("trigger_rerun"):
-    st.session_state.trigger_rerun = False
-    st.experimental_rerun()
