@@ -11,7 +11,7 @@ from fpdf import FPDF
 from gtts import gTTS
 import tempfile
 import base64
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 
 # ========== EMAIL CREDENTIALS ==========
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
@@ -55,7 +55,9 @@ def send_email(recipient_email, subject, body, attachment_path):
 tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
-translator = Translator()
+
+def translate_text(text, lang):
+    return GoogleTranslator(source='auto', target=lang).translate(text)
 
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
@@ -112,8 +114,7 @@ st.markdown(f"""
 <div class="chat-header" style="text-align:center; font-size:24px; color:{final_txt_color}; font-weight:bold;">KCET ChatBot</div>
 """, unsafe_allow_html=True)
 
-# ========== Load Vectorized Data ==========
-@st.cache_data
+# ========== Load Vectorized Data ==========@st.cache_data
 def load_vector_data():
     if os.path.exists(tf_vector_file):
         with open(tf_vector_file, "rb") as f:
@@ -146,13 +147,12 @@ if submitted and user_input.strip():
     idx = similarity.argmax()
     response = df.iloc[idx]['Answer'] if max_sim >= threshold else "❌ Sorry, I couldn't understand that. Please rephrase."
     if st.session_state.language == "ta":
-        response = translator.translate(response, dest="ta").text
+        response = translate_text(response, "ta")
     st.session_state.chat_log.append(("KCET Assistant", response, "Assistant"))
     speak_text(response)
     st.experimental_rerun()
 
-# ========== Display Chat ==========
-st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
+# ========== Display Chat ==========st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if role == "User" else 'left'
     bg = user_bubble_color if role == "User" else assistant_bubble_color
@@ -162,8 +162,7 @@ for speaker, msg, role in st.session_state.chat_log:
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ========== Export Option ==========
-st.markdown("<div id='export-section' style='display:none;'>", unsafe_allow_html=True)
+# ========== Export Option ==========st.markdown("<div id='export-section' style='display:none;'>", unsafe_allow_html=True)
 st.subheader("📤 Export Chat")
 file_type = st.radio("File Type", ["PDF", "TXT", "DOC"], index=0)
 email = st.text_input("📧 Email (PDF only)", placeholder="example@gmail.com")
