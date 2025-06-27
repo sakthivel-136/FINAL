@@ -91,17 +91,28 @@ if st.session_state.get("trigger_rerun"):
     st.session_state.trigger_rerun = False
     st.experimental_rerun()
 
-st.markdown("""
-    <h1 style='text-align: center; color: #4CAF50;'>KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</h1>
-    <div style="overflow:hidden; white-space:nowrap; animation:scroll-left 12s linear infinite; background:#333; color:white; padding:8px;">
-        💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
-    </div>
-    <style>
-    @keyframes scroll-left {
-      0%   { transform: translateX(100%); }
-      100% { transform: translateX(-100%); }
-    }
-    </style>
+# Top bar with logo and title
+try:
+    with open("kcet_logo.png", "rb") as img:
+        logo_base64 = base64.b64encode(img.read()).decode()
+        logo_html = f"<img src='data:image/png;base64,{logo_base64}' style='border-radius:50%; width:50px; height:50px; vertical-align:middle; margin-right:10px;'>"
+except:
+    logo_html = ""
+
+st.markdown(f"""
+<div style='display:flex; align-items:center; justify-content:center;'>
+    {logo_html}
+    <h1 style='display:inline; color:#4CAF50;'>KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</h1>
+</div>
+<div style="overflow:hidden; white-space:nowrap; animation:scroll-left 12s linear infinite; background:#333; color:white; padding:8px;">
+    💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
+</div>
+<style>
+@keyframes scroll-left {
+  0%   {{ transform: translateX(100%); }}
+  100% {{ transform: translateX(-100%); }}
+}
+</style>
 """, unsafe_allow_html=True)
 
 with st.form("chat_form", clear_on_submit=True):
