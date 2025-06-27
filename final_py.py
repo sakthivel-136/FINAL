@@ -62,7 +62,8 @@ def export_chat_to_bilingual_pdf():
     pdf.add_font("NotoTamil", "", "NotoSansTamil-Regular.ttf", uni=True)
     pdf.set_font("NotoTamil", size=12)
     pdf.set_text_color(0)
-    pdf.cell(0, 10, "KCET Chat History (English ⇄ Tamil)", ln=True, align="C")
+    pdf.multi_cell(0, 10, "KCET Chat History (English ⇄ Tamil)", align="C")
+    pdf.ln(5)
     for speaker, msg, role in st.session_state.original_log:
         try:
             translated = GoogleTranslator(source='en', target='ta').translate(msg) if st.session_state.language == 'en' else GoogleTranslator(source='ta', target='en').translate(msg)
@@ -70,6 +71,7 @@ def export_chat_to_bilingual_pdf():
             translated = "[Translation failed]"
         english = msg if st.session_state.language == 'en' else translated
         tamil = translated if st.session_state.language == 'en' else msg
+        pdf.set_font("NotoTamil", size=10)
         pdf.multi_cell(0, 10, f"{speaker} ({role}):\nEN: {english}\nTA: {tamil}", border=0)
         pdf.ln(2)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
