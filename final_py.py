@@ -88,6 +88,19 @@ if "trigger_rerun" not in st.session_state:
 if "clear_chat" not in st.session_state:
     st.session_state.clear_chat = False
 
+# ===== Sidebar Settings Panel =====
+st.sidebar.header("⚙️ Chat Settings")
+
+# User Name
+st.session_state.username = st.sidebar.text_input("🧑 Your Name", value=st.session_state.get("username", "You"))
+
+# Color pickers
+st.session_state.user_color = st.sidebar.color_picker("🎨 User Bubble Color", st.session_state.get("user_color", "#d0e8f2"))
+st.session_state.bot_color = st.sidebar.color_picker("🎨 Bot Bubble Color", st.session_state.get("bot_color", "#d1d1e9"))
+
+# Export option toggle
+st.session_state.enable_export = st.sidebar.checkbox("📤 Enable Chat Export", value=st.session_state.get("enable_export", True))
+
 # ===== Handle Trigger Rerun & Clear =====
 if st.session_state.trigger_rerun:
     st.session_state.trigger_rerun = False
@@ -121,7 +134,7 @@ with st.form("chat_form", clear_on_submit=True):
 
 if submitted and user_input.strip():
     user_msg = user_input.strip()
-    st.session_state.original_log.append(("You", user_msg, "User"))
+    st.session_state.original_log.append((st.session_state.username, user_msg, "User"))
     vec = vectorizer.transform([user_msg.lower()])
     similarity = cosine_similarity(vec, vectors)
     max_sim = similarity.max()
@@ -138,33 +151,34 @@ if submitted and user_input.strip():
 # ====== Chat Display ======
 for speaker, msg, role in st.session_state.original_log:
     align = 'right' if role == "User" else 'left'
-    bubble_color = '#d0e8f2' if role == "User" else '#d1d1e9'
+    bubble_color = st.session_state.user_color if role == "User" else st.session_state.bot_color
     st.markdown(f"""
         <div style='background-color:{bubble_color}; padding:10px; margin:10px; border-radius:10px; text-align:{align};'>
             <b>{speaker}</b>: {msg}
         </div>
     """, unsafe_allow_html=True)
 
-# ====== Export Section ======
-with st.expander("📤 Export Chat as TXT/DOC and Email"):
-    file_format = st.radio("Select Format", ["TXT", "DOC"])
-    recipients = st.text_input("📧 Enter comma-separated emails", key="multi_email")
+# ====== Export Section (if enabled) ======
+if st.session_state.enable_export:
+    with st.expander("📤 Export Chat as TXT/DOC and Email"):
+        file_format = st.radio("Select Format", ["TXT", "DOC"])
+        recipients = st.text_input("📧 Enter comma-separated emails", key="multi_email")
 
-    def export_chat_to_text_file(ext):
-        content = "\n".join([f"{s} ({r}): {m}" for s, m, r in st.session_state.original_log])
-        suffix = ".doc" if ext == "DOC" else ".txt"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix, mode="w", encoding="utf-8") as tmp:
-            tmp.write(content)
-            return tmp.name
+        def export_chat_to_text_file(ext):
+            content = "\n".join([f"{s} ({r}): {m}" for s, m, r in st.session_state.original_log])
+            suffix = ".doc" if ext == "DOC" else ".txt"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix, mode="w", encoding="utf-8") as tmp:
+                tmp.write(content)
+                return tmp.name
 
-    if st.button("Send Email"):
-        if recipients and file_format:
-            file_path = export_chat_to_text_file(file_format)
-            result = send_email(recipients, "KCET Chat Export", f"Attached is your KCET chat export in {file_format} format.", file_path)
-            if result is True:
-                st.success("✅ Sent successfully to all recipients")
-            else:
-                st.error(f"❌ Email error: {result}")
+        if st.button("Send Email"):
+            if recipients and file_format:
+                file_path = export_chat_to_text_file(file_format)
+                result = send_email(recipients, "KCET Chat Export", f"Attached is your KCET chat export in {file_format} format.", file_path)
+                if result is True:
+                    st.success("✅ Sent successfully to all recipients")
+                else:
+                    st.error(f"❌ Email error: {result}")
 
 # ====== Bottom Buttons ======
 col1, col2 = st.columns([1, 1])
