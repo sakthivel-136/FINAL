@@ -150,8 +150,8 @@ st.markdown("""
     }
     .message {
         padding: 20px;
-        border-radius: 12px;
-        margin: 6px 0;
+        border-radius: 16px;
+        margin: 12px 0;
         animation: fadein 0.5s;
     }
     @keyframes fadein {
@@ -227,6 +227,18 @@ if "typing" in st.session_state and st.session_state.typing:
     st.session_state.original_log.append(("KCET Assistant", response, "Assistant"))
     speak_text(response)
     st.session_state.typing = False
+
+# ========== Chat Display Section ==========
+st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
+for speaker, msg, role in st.session_state.chat_log:
+    align = 'right' if role == "User" else 'left'
+    bubble_color = user_bubble_color if role == "User" else assistant_bubble_color
+    st.markdown(f"""
+    <div class='message' style='background-color:{bubble_color}; text-align:{align}; color:{text_color};'>
+        <div><b>{speaker}</b> ({role}):<br> {msg}</div>
+    </div>
+    """, unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
 # ========== Export Section: Tamil-English Side-by-Side PDF ==========
 if st.button("📄 Export Chat as PDF with Tamil-English"):
