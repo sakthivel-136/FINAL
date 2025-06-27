@@ -59,6 +59,14 @@ threshold = 0.6
 def translate_text(text, lang):
     return GoogleTranslator(source='auto', target=lang).translate(text)
 
+def translate_chat_log(target_lang):
+    translated_log = []
+    for speaker, msg, role in st.session_state.chat_log:
+        if role == "Assistant":
+            msg = translate_text(msg, target_lang)
+        translated_log.append((speaker, msg, role))
+    st.session_state.chat_log = translated_log
+
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
 if "theme" not in st.session_state:
@@ -71,7 +79,9 @@ st.sidebar.toggle("🌗 Theme", value=st.session_state.theme == "Dark", key="the
 st.session_state.theme = "Dark" if st.session_state.theme_toggle else "Light"
 
 if st.sidebar.button("🔄 Translate to " + ("English" if st.session_state.language == "ta" else "Tamil")):
-    st.session_state.language = "en" if st.session_state.language == "ta" else "ta"
+    new_lang = "en" if st.session_state.language == "ta" else "ta"
+    translate_chat_log(new_lang)
+    st.session_state.language = new_lang
 
 mode = st.session_state.theme
 is_dark = mode == "Dark"
