@@ -97,13 +97,21 @@ st.session_state.user_color = st.sidebar.color_picker("🎨 User Bubble Color", 
 st.session_state.bot_color = st.sidebar.color_picker("🎨 Bot Bubble Color", value=st.session_state.bot_color)
 st.session_state.enable_export = st.sidebar.checkbox("📤 Enable Chat Export", value=st.session_state.enable_export)
 
-# Header
-st.markdown("""
+# Load Logo
+try:
+    with open("kcet_logo.png", "rb") as img_file:
+        logo_base64 = base64.b64encode(img_file.read()).decode()
+except:
+    logo_base64 = ""
+
+# Display Header
+st.markdown(f"""
 <div style='display:flex; justify-content:space-between; align-items:center; background:#333; padding:8px 16px; border-radius:6px;'>
-    <span style='color:white; font-size:14px; font-weight:bold;'>KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</span>
-    <marquee scrollamount='5' style='color:white; font-size:13px;'>
-        💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
-    </marquee>
+    <div style='display:flex; align-items:center;'>
+        <img src='data:image/png;base64,{logo_base64}' style='height:40px; width:40px; border-radius:50%; margin-right:10px;'>
+        <span style='color:white; font-size:14px; font-weight:bold;'>KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</span>
+    </div>
+    <marquee scrollamount='5' style='color:white; font-size:13px;'>💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration</marquee>
 </div>
 """, unsafe_allow_html=True)
 
@@ -131,7 +139,6 @@ if submitted and user_input.strip():
         time.sleep(min(1.5, len(answer)/20))
         speak_text(answer)
         st.success(answer)
-
 
 # Translate All Messages
 if "translated" not in st.session_state:
