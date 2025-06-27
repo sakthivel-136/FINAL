@@ -61,20 +61,21 @@ if "theme" not in st.session_state:
     st.session_state.theme = "Dark"
 
 # ========== Theme Switch ==========
-st.markdown("""
+checked_attr = "checked" if st.session_state.theme == "Dark" else ""
+st.markdown(f"""
     <style>
-        .switch {
+        .switch {{
             position: relative;
             display: inline-block;
             width: 60px;
             height: 34px;
-        }
-        .switch input {
+        }}
+        .switch input {{
             opacity: 0;
             width: 0;
             height: 0;
-        }
-        .slider {
+        }}
+        .slider {{
             position: absolute;
             cursor: pointer;
             top: 0; left: 0;
@@ -82,8 +83,8 @@ st.markdown("""
             background-color: #ccc;
             transition: .4s;
             border-radius: 34px;
-        }
-        .slider:before {
+        }}
+        .slider:before {{
             position: absolute;
             content: "";
             height: 26px;
@@ -93,19 +94,19 @@ st.markdown("""
             background-color: white;
             transition: .4s;
             border-radius: 50%;
-        }
-        input:checked + .slider {
+        }}
+        input:checked + .slider {{
             background-color: #2196F3;
-        }
-        input:checked + .slider:before {
+        }}
+        input:checked + .slider:before {{
             transform: translateX(26px);
-        }
+        }}
     </style>
     <label class="switch">
-      <input type="checkbox" onchange="window.location.reload();" {}>
+      <input type="checkbox" onchange="window.location.reload();" {checked_attr}>
       <span class="slider"></span>
     </label>
-""".format("checked" if st.session_state.theme == "Dark" else ""), unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 mode = st.session_state.theme
 is_dark = mode == "Dark"
@@ -140,7 +141,7 @@ st.markdown("""
     <button class="circle-button" onclick="document.getElementById('export-section').style.display='block'">📤</button>
 """, unsafe_allow_html=True)
 
-# ========== Header UI ==========
+# ========== Header ==========
 st.markdown(f"""
 <div class="scrolling-banner" style="background-color:{bg_color}; color:gold; padding:10px; text-align:center;">
     💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
@@ -168,7 +169,7 @@ vectorizer, vectors, df = load_vector_data()
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
-# ========== Chat Form ==========
+# ========== Chat Input Form ==========
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Ask your question...", label_visibility="collapsed")
@@ -191,12 +192,12 @@ for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if role == "User" else 'left'
     bg = user_bubble_color if role == "User" else assistant_bubble_color
     st.markdown(f"""
-    <div class='message' style='background-color:{bg}; text-align:{align}; color:{final_txt_color};'>
+    <div class='message' style='background-color:{bg}; text-align:{align}; color:{final_txt_color}; padding:8px; margin:5px; border-radius:10px;'>
         <div><b>{speaker}</b> ({role}): {msg.replace('\xa0', ' ')}</div>
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ========== Export Option ==========
+# ========== Export Section ==========
 st.markdown("<div id='export-section' style='display:none;'>", unsafe_allow_html=True)
 st.subheader("📤 Export Chat")
 file_type = st.radio("File Type", ["PDF", "TXT", "DOC"], index=0)
