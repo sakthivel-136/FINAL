@@ -11,6 +11,7 @@ from fpdf import FPDF
 from gtts import gTTS
 import tempfile
 import base64
+from googletrans import Translator
 
 # ========== EMAIL CREDENTIALS ==========
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
@@ -22,7 +23,7 @@ def remove_emojis(text):
 
 # ========== Voice Response ==========
 def speak_text(text):
-    tts = gTTS(text=text, lang='en')
+    tts = gTTS(text=text, lang='ta' if st.session_state.get("language", "en") == "ta" else 'en')
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
         tts.save(fp.name)
         audio_base64 = base64.b64encode(open(fp.name, "rb").read()).decode()
@@ -54,59 +55,21 @@ def send_email(recipient_email, subject, body, attachment_path):
 tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
 threshold = 0.6
+translator = Translator()
 
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
 if "theme" not in st.session_state:
     st.session_state.theme = "Dark"
+if "language" not in st.session_state:
+    st.session_state.language = "en"
 
-# ========== Theme Switch ==========
-checked_attr = "checked" if st.session_state.theme == "Dark" else ""
-st.markdown(f"""
-    <style>
-        .switch {{
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 34px;
-        }}
-        .switch input {{
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }}
-        .slider {{
-            position: absolute;
-            cursor: pointer;
-            top: 0; left: 0;
-            right: 0; bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
-        }}
-        .slider:before {{
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }}
-        input:checked + .slider {{
-            background-color: #2196F3;
-        }}
-        input:checked + .slider:before {{
-            transform: translateX(26px);
-        }}
-    </style>
-    <label class="switch">
-      <input type="checkbox" onchange="window.location.reload();" {checked_attr}>
-      <span class="slider"></span>
-    </label>
-""", unsafe_allow_html=True)
+# ========== Theme and Language Toggle ==========
+st.sidebar.toggle("🌗 Theme", value=st.session_state.theme == "Dark", key="theme_toggle")
+st.session_state.theme = "Dark" if st.session_state.theme_toggle else "Light"
+
+if st.sidebar.button("🔄 Translate to " + ("English" if st.session_state.language == "ta" else "Tamil")):
+    st.session_state.language = "en" if st.session_state.language == "ta" else "ta"
 
 mode = st.session_state.theme
 is_dark = mode == "Dark"
@@ -141,7 +104,7 @@ st.markdown("""
     <button class="circle-button" onclick="document.getElementById('export-section').style.display='block'">📤</button>
 """, unsafe_allow_html=True)
 
-# ========== Header ==========
+# ========== Header UI ==========
 st.markdown(f"""
 <div class="scrolling-banner" style="background-color:{bg_color}; color:gold; padding:10px; text-align:center;">
     💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
@@ -169,7 +132,7 @@ vectorizer, vectors, df = load_vector_data()
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
-# ========== Chat Input Form ==========
+# ========== Chat Form ==========
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([10, 1])
     user_input = col1.text_input("Ask your question...", label_visibility="collapsed")
@@ -182,6 +145,8 @@ if submitted and user_input.strip():
     max_sim = similarity.max()
     idx = similarity.argmax()
     response = df.iloc[idx]['Answer'] if max_sim >= threshold else "❌ Sorry, I couldn't understand that. Please rephrase."
+    if st.session_state.language == "ta":
+        response = translator.translate(response, dest="ta").text
     st.session_state.chat_log.append(("KCET Assistant", response, "Assistant"))
     speak_text(response)
     st.experimental_rerun()
@@ -192,12 +157,12 @@ for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if role == "User" else 'left'
     bg = user_bubble_color if role == "User" else assistant_bubble_color
     st.markdown(f"""
-    <div class='message' style='background-color:{bg}; text-align:{align}; color:{final_txt_color}; padding:8px; margin:5px; border-radius:10px;'>
+    <div class='message' style='background-color:{bg}; text-align:{align}; color:{final_txt_color};'>
         <div><b>{speaker}</b> ({role}): {msg.replace('\xa0', ' ')}</div>
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ========== Export Section ==========
+# ========== Export Option ==========
 st.markdown("<div id='export-section' style='display:none;'>", unsafe_allow_html=True)
 st.subheader("📤 Export Chat")
 file_type = st.radio("File Type", ["PDF", "TXT", "DOC"], index=0)
