@@ -62,21 +62,30 @@ def export_chat_to_bilingual_pdf():
     pdf.add_font("NotoTamil", "", "NotoSansTamil-Regular.ttf", uni=True)
     pdf.set_font("NotoTamil", size=12)
     pdf.set_text_color(0)
+
     if os.path.exists("kcet_logo.png"):
-        pdf.image("kcet_logo.png", x=10, y=8, w=20, h=20)
-    pdf.set_xy(35, 10)
-    pdf.cell(0, 10, "KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY", ln=True)
+        pdf.image("kcet_logo.png", x=10, y=10, w=20, h=20)
+        pdf.set_xy(35, 12)
+
+    pdf.set_font("NotoTamil", size=14)
+    pdf.cell(0, 10, "KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY", ln=True, align="C")
     pdf.ln(10)
+
     for speaker, msg, role in st.session_state.original_log:
         try:
             translated = GoogleTranslator(source='en', target='ta').translate(msg) if st.session_state.language == 'en' else GoogleTranslator(source='ta', target='en').translate(msg)
         except:
             translated = "[Translation failed]"
+
         english = msg if st.session_state.language == 'en' else translated
         tamil = translated if st.session_state.language == 'en' else msg
+
         pdf.set_font("NotoTamil", size=10)
-        pdf.multi_cell(0, 10, f"{speaker} ({role}):\nEN: {english}\nTA: {tamil}", border=0)
+        pdf.multi_cell(0, 8, f"{speaker} ({role}):", border=0)
+        pdf.multi_cell(0, 8, f"EN: {english}", border=0)
+        pdf.multi_cell(0, 8, f"TA: {tamil}", border=0)
         pdf.ln(2)
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         pdf.output(tmp.name)
         return tmp.name
@@ -149,12 +158,12 @@ with col2:
 if lang_toggle:
     st.session_state.language = "ta" if st.session_state.language == "en" else "en"
     st.session_state.trigger_rerun = True
-    st.stop()
+    st.experimental_rerun()
 
 if clear_chat:
     st.session_state.original_log = []
     st.session_state.trigger_rerun = True
-    st.stop()
+    st.experimental_rerun()
 
 with st.form("chat_form", clear_on_submit=True):
     user_input = st.text_input("Ask your question...", label_visibility="collapsed")
