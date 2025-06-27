@@ -109,11 +109,11 @@ st.markdown(f"""
 </div>
 <style>
 @keyframes scroll-left {
-  0%   {{ transform: translateX(100%); }}
-  100% {{ transform: translateX(-100%); }}
+  0%   { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
 }
 </style>
-""".replace("{{", "{").replace("}}", "}"), unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 with st.form("chat_form", clear_on_submit=True):
     user_input = st.text_input("Ask your question...")
