@@ -7,7 +7,6 @@ import re
 from email.message import EmailMessage
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from fpdf import FPDF
 from gtts import gTTS
 import tempfile
 import base64
@@ -91,23 +90,18 @@ if "clear_chat" not in st.session_state:
 # ===== Sidebar Settings Panel =====
 st.sidebar.header("⚙️ Chat Settings")
 
-# User Name
 st.session_state.username = st.sidebar.text_input("🧑 Your Name", value=st.session_state.get("username", "You"))
-
-# Color pickers
 st.session_state.user_color = st.sidebar.color_picker("🎨 User Bubble Color", st.session_state.get("user_color", "#d0e8f2"))
 st.session_state.bot_color = st.sidebar.color_picker("🎨 Bot Bubble Color", st.session_state.get("bot_color", "#d1d1e9"))
-
-# Export option toggle
 st.session_state.enable_export = st.sidebar.checkbox("📤 Enable Chat Export", value=st.session_state.get("enable_export", True))
 
 # ===== Handle Trigger Rerun & Clear =====
 if st.session_state.trigger_rerun:
-    st.session_state.trigger_rerun = False
     if st.session_state.clear_chat:
-        st.session_state.original_log = []
+        st.session_state.original_log.clear()
         st.session_state.clear_chat = False
-    st.stop()
+    st.session_state.trigger_rerun = False
+    st.rerun()
 
 # ====== Header Section ======
 try:
