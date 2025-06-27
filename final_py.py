@@ -99,11 +99,11 @@ st.session_state.enable_export = st.sidebar.checkbox("📤 Enable Chat Export", 
 
 # Header
 st.markdown("""
-<div style='display:flex; align-items:center; justify-content:center;'>
-    <h1 style='color:#4CAF50;'>KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</h1>
-</div>
-<div style="overflow:hidden; white-space:nowrap; animation:scroll-left 12s linear infinite; background:#333; color:white; padding:8px;">
-    💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
+<div style='display:flex; justify-content:space-between; align-items:center; background:#333; padding:8px 16px; border-radius:6px;'>
+    <span style='color:white; font-size:14px; font-weight:bold;'>KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</span>
+    <marquee scrollamount='5' style='color:white; font-size:13px;'>
+        💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
+    </marquee>
 </div>
 """, unsafe_allow_html=True)
 
