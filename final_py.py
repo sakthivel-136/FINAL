@@ -78,21 +78,25 @@ vectorizer, vectors, df = load_vector_data()
 
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
+# ===== Session State Initialization =====
 if "language" not in st.session_state:
     st.session_state.language = "en"
-
 if "original_log" not in st.session_state:
     st.session_state.original_log = []
-
 if "trigger_rerun" not in st.session_state:
     st.session_state.trigger_rerun = False
+if "clear_chat" not in st.session_state:
+    st.session_state.clear_chat = False
 
-# ✅ Safe rerun using st.stop()
-if st.session_state.get("trigger_rerun"):
+# ===== Handle Trigger Rerun & Clear =====
+if st.session_state.trigger_rerun:
     st.session_state.trigger_rerun = False
+    if st.session_state.clear_chat:
+        st.session_state.original_log = []
+        st.session_state.clear_chat = False
     st.stop()
 
-# Top bar with logo and title
+# ====== Header Section ======
 try:
     with open("kcet_logo.png", "rb") as img:
         logo_base64 = base64.b64encode(img.read()).decode()
@@ -110,7 +114,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ========== Chat Input ==========
+# ====== Chat Form ======
 with st.form("chat_form", clear_on_submit=True):
     user_input = st.text_input("Ask your question...")
     submitted = st.form_submit_button("➔")
@@ -131,7 +135,7 @@ if submitted and user_input.strip():
     st.success(answer)
     speak_text(answer)
 
-# ========== Chat Display ==========
+# ====== Chat Display ======
 for speaker, msg, role in st.session_state.original_log:
     align = 'right' if role == "User" else 'left'
     bubble_color = '#d0e8f2' if role == "User" else '#d1d1e9'
@@ -141,7 +145,7 @@ for speaker, msg, role in st.session_state.original_log:
         </div>
     """, unsafe_allow_html=True)
 
-# ========== Export Section ==========
+# ====== Export Section ======
 with st.expander("📤 Export Chat as TXT/DOC and Email"):
     file_format = st.radio("Select Format", ["TXT", "DOC"])
     recipients = st.text_input("📧 Enter comma-separated emails", key="multi_email")
@@ -162,7 +166,7 @@ with st.expander("📤 Export Chat as TXT/DOC and Email"):
             else:
                 st.error(f"❌ Email error: {result}")
 
-# ========== Bottom Buttons ==========
+# ====== Bottom Buttons ======
 col1, col2 = st.columns([1, 1])
 with col1:
     if st.button("🔄 Translate to Tamil" if st.session_state.language == "en" else "🖙 Back to English"):
@@ -171,5 +175,5 @@ with col1:
 
 with col2:
     if st.button("🩹 Clear Chat"):
-        st.session_state.original_log = []
+        st.session_state.clear_chat = True
         st.session_state.trigger_rerun = True
