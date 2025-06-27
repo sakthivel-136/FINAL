@@ -145,7 +145,6 @@ if submitted and user_input.strip():
     st.session_state.original_log.append(("KCET Assistant", answer, "Assistant"))
     with st.spinner("KCET Assistant typing..."):
         time.sleep(min(1.5, len(answer) / 20))
-    st.success(answer)
     speak_text(answer)
 
 # ====== Chat Display ======
