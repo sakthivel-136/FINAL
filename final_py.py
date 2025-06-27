@@ -74,6 +74,14 @@ def export_chat_to_bilingual_pdf():
         pdf.output(tmp.name)
         return tmp.name
 
+# ========== Export DOC/TXT ==========
+def export_chat_to_text_file(ext):
+    content = "\n".join([f"{s} ({r}): {m}" for s, m, r in st.session_state.original_log])
+    suffix = ".doc" if ext == "DOC" else ".txt"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix, mode="w", encoding="utf-8") as tmp:
+        tmp.write(content)
+        return tmp.name
+
 # ========== Constants ==========
 tf_vector_file = "vectorized.pkl"
 csv_file = "kcet.csv"
@@ -120,22 +128,22 @@ st.markdown("""
 
 col1, col2 = st.columns([1, 1])
 with col1:
-    lang_toggle = st.button("🔄 Translate to Tamil" if st.session_state.language == "en" else "🔙 Back to English")
+    lang_toggle = st.button("🔄 Translate to Tamil" if st.session_state.language == "en" else "🖙 Back to English")
 
 with col2:
     clear_chat = st.button("🧹 Clear Chat")
 
 if lang_toggle:
     st.session_state.language = "ta" if st.session_state.language == "en" else "en"
-    raise st.script_run_ctx.RerunException(st.script_request_queue.RerunData(None))
+    st.experimental_rerun()
 
 if clear_chat:
     st.session_state.original_log = []
-    raise st.script_run_ctx.RerunException(st.script_request_queue.RerunData(None))
+    st.experimental_rerun()
 
 with st.form("chat_form", clear_on_submit=True):
     user_input = st.text_input("Ask your question...")
-    submitted = st.form_submit_button("➤")
+    submitted = st.form_submit_button("➔")
 
 if submitted and user_input.strip():
     user_msg = user_input.strip()
@@ -164,7 +172,7 @@ for speaker, msg, role in st.session_state.original_log:
     """, unsafe_allow_html=True)
 
 # Export section
-with st.expander("📤 Export Chat and Email"):
+with st.expander("📄 Export Chat and Email"):
     export_type = st.radio("Choose Export Type", ["TXT", "DOC", "PDF Bilingual"], key="export_type")
     recipients = st.text_input("📧 Enter comma-separated emails", key="multi_email")
     if st.button("Send Email"):
