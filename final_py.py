@@ -158,7 +158,12 @@ with col2:
 if lang_toggle:
     st.session_state.language = "ta" if st.session_state.language == "en" else "en"
     st.session_state.trigger_rerun = True
-    st.experimental_rerun()
+
+# Place this at the very beginning of your script, right after initializing Streamlit session:
+if st.session_state.get("trigger_rerun"):
+    st.session_state.trigger_rerun = False
+    st.rerun()
+
 
 if clear_chat:
     st.session_state.original_log = []
