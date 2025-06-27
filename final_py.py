@@ -102,8 +102,21 @@ st.markdown("""
         border-radius: 50%;
         cursor: pointer;
     }
+    .message {
+        padding: 14px;
+        border-radius: 10px;
+        margin: 5px 0;
+        animation: fadein 0.5s;
+    }
+    @keyframes fadein {
+        from {opacity: 0; transform: translateY(10px);}
+        to {opacity: 1; transform: translateY(0);}
+    }
     </style>
     <button class="circle-button" onclick="document.getElementById('export-section').style.display='block'">📤</button>
+    <script>
+        window.scrollTo(0, document.body.scrollHeight);
+    </script>
 """, unsafe_allow_html=True)
 
 # ========== Header UI ==========
@@ -111,7 +124,7 @@ st.markdown(f"""
 <div class="scrolling-banner" style="background-color:{bg_color}; color:gold; padding:10px; text-align:center;">
     💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
 </div>
-<div class="chat-header" style="text-align:center; font-size:24px; color:{final_txt_color}; font-weight:bold;">KCET ChatBot</div>
+<div class="chat-header" style="text-align:center; font-size:28px; color:{final_txt_color}; font-weight:bold; margin-top: 10px;">KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY - KCET ChatBot</div>
 """, unsafe_allow_html=True)
 
 # ========== Load Vectorized Data ==========@st.cache_data
@@ -150,9 +163,10 @@ if submitted and user_input.strip():
         response = translate_text(response, "ta")
     st.session_state.chat_log.append(("KCET Assistant", response, "Assistant"))
     speak_text(response)
-    st.experimental_rerun()
+    st.rerun()
 
-# ========== Display Chat ==========st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
+# ========== Display Chat ==========
+st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
 for speaker, msg, role in st.session_state.chat_log:
     align = 'right' if role == "User" else 'left'
     bg = user_bubble_color if role == "User" else assistant_bubble_color
@@ -162,7 +176,8 @@ for speaker, msg, role in st.session_state.chat_log:
     </div>""", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ========== Export Option ==========st.markdown("<div id='export-section' style='display:none;'>", unsafe_allow_html=True)
+# ========== Export Option ==========
+st.markdown("<div id='export-section' style='display:none;'>", unsafe_allow_html=True)
 st.subheader("📤 Export Chat")
 file_type = st.radio("File Type", ["PDF", "TXT", "DOC"], index=0)
 email = st.text_input("📧 Email (PDF only)", placeholder="example@gmail.com")
@@ -205,4 +220,4 @@ st.markdown("</div>", unsafe_allow_html=True)
 # ========== Clear Chat ==========
 if st.button("🧹 Clear Chat"):
     st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
-    st.experimental_rerun()
+    st.rerun()
