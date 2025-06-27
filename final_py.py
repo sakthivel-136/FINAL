@@ -56,29 +56,22 @@ def send_email(recipient_emails, subject, body, attachment_path):
         return str(e)
 
 # ========== Export Bilingual PDF ==========
-from fpdf import FPDF
-
 def export_chat_to_bilingual_pdf():
     pdf = FPDF()
     pdf.add_page()
     pdf.add_font("NotoTamil", "", "NotoSansTamil-Regular.ttf", uni=True)
     pdf.set_font("NotoTamil", size=12)
-
     pdf.set_text_color(0)
     pdf.cell(0, 10, "KCET Chat History (English ⇄ Tamil)", ln=True, align="C")
-
     for speaker, msg, role in st.session_state.original_log:
         try:
             translated = GoogleTranslator(source='en', target='ta').translate(msg) if st.session_state.language == 'en' else GoogleTranslator(source='ta', target='en').translate(msg)
         except:
             translated = "[Translation failed]"
-
         english = msg if st.session_state.language == 'en' else translated
         tamil = translated if st.session_state.language == 'en' else msg
-
         pdf.multi_cell(0, 10, f"{speaker} ({role}):\nEN: {english}\nTA: {tamil}", border=0)
         pdf.ln(2)
-
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         pdf.output(tmp.name)
         return tmp.name
@@ -154,7 +147,7 @@ if clear_chat:
     st.session_state.trigger_rerun = True
 
 with st.form("chat_form", clear_on_submit=True):
-    user_input = st.text_input("Ask your question...")
+    user_input = st.text_input("Ask your question...", label_visibility="collapsed")
     submitted = st.form_submit_button("➔")
 
 if submitted and user_input.strip():
@@ -178,7 +171,7 @@ for speaker, msg, role in st.session_state.original_log:
     align = 'right' if role == "User" else 'left'
     bubble_color = '#d0e8f2' if role == "User" else '#d1d1e9'
     st.markdown(f"""
-        <div style='background-color:{bubble_color}; padding:10px; margin:10px; border-radius:10px; text-align:{align};'>
+        <div style='background-color:{bubble_color}; padding:14px; margin:10px; border-radius:12px; text-align:{align}; max-width:90%;'>
             <b>{speaker}</b>: {msg}
         </div>
     """, unsafe_allow_html=True)
