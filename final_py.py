@@ -107,12 +107,7 @@ st.markdown(f"""
 <div style="overflow:hidden; white-space:nowrap; animation:scroll-left 12s linear infinite; background:#333; color:white; padding:8px;">
     💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
 </div>
-<style>
-@keyframes scroll-left {
-  0%   { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
-}
-</style>
+
 """, unsafe_allow_html=True)
 
 with st.form("chat_form", clear_on_submit=True):
