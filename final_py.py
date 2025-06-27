@@ -87,9 +87,10 @@ if "original_log" not in st.session_state:
 if "trigger_rerun" not in st.session_state:
     st.session_state.trigger_rerun = False
 
+# ✅ Safe rerun using st.stop()
 if st.session_state.get("trigger_rerun"):
     st.session_state.trigger_rerun = False
-    st.experimental_rerun()
+    st.stop()
 
 # Top bar with logo and title
 try:
@@ -107,9 +108,9 @@ st.markdown(f"""
 <div style="overflow:hidden; white-space:nowrap; animation:scroll-left 12s linear infinite; background:#333; color:white; padding:8px;">
     💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
 </div>
-
 """, unsafe_allow_html=True)
 
+# ========== Chat Input ==========
 with st.form("chat_form", clear_on_submit=True):
     user_input = st.text_input("Ask your question...")
     submitted = st.form_submit_button("➔")
@@ -126,10 +127,11 @@ if submitted and user_input.strip():
         answer = GoogleTranslator(source='en', target='ta').translate(answer)
     st.session_state.original_log.append(("KCET Assistant", answer, "Assistant"))
     with st.spinner("KCET Assistant typing..."):
-        time.sleep(min(1.5, len(answer)/20))
+        time.sleep(min(1.5, len(answer) / 20))
     st.success(answer)
     speak_text(answer)
 
+# ========== Chat Display ==========
 for speaker, msg, role in st.session_state.original_log:
     align = 'right' if role == "User" else 'left'
     bubble_color = '#d0e8f2' if role == "User" else '#d1d1e9'
@@ -139,7 +141,7 @@ for speaker, msg, role in st.session_state.original_log:
         </div>
     """, unsafe_allow_html=True)
 
-# Export section
+# ========== Export Section ==========
 with st.expander("📤 Export Chat as TXT/DOC and Email"):
     file_format = st.radio("Select Format", ["TXT", "DOC"])
     recipients = st.text_input("📧 Enter comma-separated emails", key="multi_email")
@@ -160,7 +162,7 @@ with st.expander("📤 Export Chat as TXT/DOC and Email"):
             else:
                 st.error(f"❌ Email error: {result}")
 
-# Bottom buttons
+# ========== Bottom Buttons ==========
 col1, col2 = st.columns([1, 1])
 with col1:
     if st.button("🔄 Translate to Tamil" if st.session_state.language == "en" else "🖙 Back to English"):
