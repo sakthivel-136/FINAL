@@ -37,14 +37,16 @@ def speak_text(text):
         st.markdown(audio_html, unsafe_allow_html=True)
 
 # ========== Email Sending ==========
-def send_email(recipient_email, subject, body, attachment_path):
+def send_email(recipient_emails, subject, body, attachment_path):
+    if isinstance(recipient_emails, str):
+        recipient_emails = [email.strip() for email in recipient_emails.split(",") if "@" in email]
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = SENDER_EMAIL
-    msg["To"] = recipient_email
+    msg["To"] = ", ".join(recipient_emails)
     msg.set_content(body)
     with open(attachment_path, "rb") as f:
-        msg.add_attachment(f.read(), maintype="application", subtype="pdf", filename="KCET_Chat_Report.pdf")
+        msg.add_attachment(f.read(), maintype="application", subtype="octet-stream", filename=os.path.basename(attachment_path))
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
             smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
@@ -75,189 +77,86 @@ def load_vector_data():
 
 vectorizer, vectors, df = load_vector_data()
 
-# ========== Translation Support ==========
-def translate_text(text, lang):
-    try:
-        return GoogleTranslator(source='auto', target=lang).translate(text)
-    except:
-        return text
+# ========== Export DOC/TXT to Email ==========
+def export_chat_to_text_file(ext):
+    content = "\n".join([f"{s} ({r}): {m}" for s, m, r in st.session_state.original_log])
+    suffix = ".doc" if ext == "DOC" else ".txt"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix, mode="w", encoding="utf-8") as tmp:
+        tmp.write(content)
+        return tmp.name
 
-def translate_chat_log(target_lang):
-    if "original_log" not in st.session_state:
-        return
-    translated_log = []
-    for i, (speaker, msg, role) in enumerate(st.session_state.original_log):
-        if role == "Assistant":
-            msg = translate_text(msg, target_lang)
-        translated_log.append((speaker, msg, role))
-    st.session_state.chat_log = translated_log
-
-# ========== Page Setup ==========
+# ========== UI Section ==========
 st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-# ========== Session Defaults ==========
-if "theme" not in st.session_state:
-    st.session_state.theme = "Dark"
 if "language" not in st.session_state:
     st.session_state.language = "en"
+
 if "original_log" not in st.session_state:
     st.session_state.original_log = []
-if "chat_log" not in st.session_state:
-    st.session_state.chat_log = [("KCET Assistant", "Hello! I'm your KCET Assistant. Ask me anything.", "Assistant")]
 
-# ========== Theme and Language Toggle ==========
-st.sidebar.toggle("🍗 Theme", value=st.session_state.theme == "Dark", key="theme_toggle")
-st.session_state.theme = "Dark" if st.session_state.theme_toggle else "Light"
-
-if st.sidebar.button("🔄 Translate to " + ("English" if st.session_state.language == "ta" else "Tamil")):
-    new_lang = "en" if st.session_state.language == "ta" else "ta"
-    translate_chat_log(new_lang)
-    st.session_state.language = new_lang
-
-# ========== Theme Settings ==========
-mode = st.session_state.theme
-is_dark = mode == "Dark"
-bg_color = "#111" if is_dark else "#fff"
-final_txt_color = "white" if is_dark else "black"
-
-# ========== Sidebar ==========
-with st.sidebar:
-    st.title("⚙️ Settings")
-    st.session_state.user_name = st.text_input("👤 Your Name", value=st.session_state.get("user_name", "Shakthivel"))
-    user_bubble_color = st.color_picker("🎨 User Bubble", "#d0e8f2")
-    assistant_bubble_color = st.color_picker("🎨 Assistant Bubble", "#d1d1e9")
-    text_color = st.color_picker("🕋️ Text Color", "#000000")
-
-# ========== Export Toggle Button ==========
 st.markdown("""
-    <style>
-    .circle-button {
-        background-color: #4CAF50;
-        border: none;
-        color: white;
-        padding: 12px 16px;
-        text-align: center;
-        text-decoration: none;
-        display: inline-block;
-        font-size: 16px;
-        margin: 4px 2px;
-        border-radius: 50%;
-        cursor: pointer;
-        transition: transform 0.3s;
-    }
-    .circle-button:hover {
-        transform: scale(1.2);
-    }
-    .message {
-        padding: 20px;
-        border-radius: 16px;
-        margin: 12px 0;
-        animation: fadein 0.5s;
-    }
-    @keyframes fadein {
-        from {opacity: 0; transform: translateY(10px);}
-        to {opacity: 1; transform: translateY(0);}
-    }
-    .scrolling-banner {
-        overflow: hidden;
-        white-space: nowrap;
-        animation: scroll-left 20s linear infinite;
-        color: gold;
-        background-color: """ + bg_color + """;
-        padding: 8px;
-        font-weight: bold;
-        font-size: 16px;
-        text-align: center;
-        direction: """ + ("rtl" if st.session_state.language == "ta" else "ltr") + """;
-    }
-    @keyframes scroll-left {
-        0% { transform: translateX(100%); }
-        100% { transform: translateX(-100%); }
-    }
-    </style>
-    <button class="circle-button" onclick="document.getElementById('export-section').style.display='block'">📄</button>
-    <div class="scrolling-banner">
+    <h1 style='text-align: center; color: #4CAF50;'>KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</h1>
+    <div style="overflow:hidden; white-space:nowrap; animation:scroll-left 12s linear infinite; background:#333; color:white; padding:8px;">
         💼 100% Placement | 👩‍🏫 Top Faculty | 🎓 Research Driven | 🧠 Hackathons | 🤝 Industry Collaboration
     </div>
-    <script>
-    setTimeout(function(){ window.scrollTo(0, document.body.scrollHeight); }, 500);
-    </script>
+    <style>
+    @keyframes scroll-left {
+      0%   { transform: translateX(100%); }
+      100% { transform: translateX(-100%); }
+    }
+    </style>
 """, unsafe_allow_html=True)
 
-# ========== Header UI ==========
-st.markdown(f"""
-<div class="chat-header" style="text-align:center; font-size:30px; color:{final_txt_color}; font-weight:bold; margin-top: 10px;">
-    KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY - KCET ChatBot
-</div>
-""", unsafe_allow_html=True)
+col1, col2 = st.columns([1, 1])
+with col1:
+    if st.button("🔄 Translate to Tamil" if st.session_state.language == "en" else "🔙 Back to English"):
+        st.session_state.language = "ta" if st.session_state.language == "en" else "en"
+        st.experimental_rerun()
 
-# ========== Chat Input Form ==========
+with col2:
+    if st.button("🧹 Clear Chat"):
+        st.session_state.original_log = []
+        st.experimental_rerun()
+
 with st.form("chat_form", clear_on_submit=True):
-    col1, col2 = st.columns([10, 1])
-    user_input = col1.text_input("Ask your question...", label_visibility="collapsed")
-    submitted = col2.form_submit_button("➤")
+    user_input = st.text_input("Ask your question...")
+    submitted = st.form_submit_button("➤")
 
 if submitted and user_input.strip():
-    if "original_log" not in st.session_state:
-        st.session_state.original_log = []
-    st.session_state.chat_log.append((st.session_state.user_name, user_input.strip(), "User"))
-    st.session_state.original_log.append((st.session_state.user_name, user_input.strip(), "User"))
-
-    vec = vectorizer.transform([user_input.lower()])
+    user_msg = user_input.strip()
+    st.session_state.original_log.append(("You", user_msg, "User"))
+    vec = vectorizer.transform([user_msg.lower()])
     similarity = cosine_similarity(vec, vectors)
     max_sim = similarity.max()
     idx = similarity.argmax()
-    response = df.iloc[idx]['Answer'] if max_sim >= threshold else "❌ Sorry, I couldn't understand that. Please rephrase."
+    answer = df.iloc[idx]['Answer'] if max_sim >= threshold else "❌ Sorry, I couldn't understand that. Please rephrase."
+    if st.session_state.language == "ta":
+        answer = GoogleTranslator(source='en', target='ta').translate(answer)
+    st.session_state.original_log.append(("KCET Assistant", answer, "Assistant"))
+    with st.spinner("KCET Assistant typing..."):
+        time.sleep(min(1.5, len(answer)/20))
+    st.success(answer)
+    speak_text(answer)
 
-    st.session_state.typing = True
-    st.rerun()
-
-# ========== AI Typing Animation ==========
-if "typing" in st.session_state and st.session_state.typing:
-    with st.spinner("KCET Assistant is typing..."):
-        time.sleep(1.5)
-    user_input = st.session_state.chat_log[-1][1]
-    vec = vectorizer.transform([user_input.lower()])
-    similarity = cosine_similarity(vec, vectors)
-    max_sim = similarity.max()
-    idx = similarity.argmax()
-    response = df.iloc[idx]['Answer'] if max_sim >= threshold else "❌ Sorry, I couldn't understand that. Please rephrase."
-
-    st.session_state.chat_log.append(("KCET Assistant", response, "Assistant"))
-    st.session_state.original_log.append(("KCET Assistant", response, "Assistant"))
-    speak_text(response)
-    st.session_state.typing = False
-
-# ========== Chat Display Section ==========
-st.markdown("<div style='padding:10px;'>", unsafe_allow_html=True)
-for speaker, msg, role in st.session_state.chat_log:
+# Show conversation
+for speaker, msg, role in st.session_state.original_log:
     align = 'right' if role == "User" else 'left'
-    bubble_color = user_bubble_color if role == "User" else assistant_bubble_color
+    bubble_color = '#d0e8f2' if role == "User" else '#d1d1e9'
     st.markdown(f"""
-    <div class='message' style='background-color:{bubble_color}; text-align:{align}; color:{text_color};'>
-        <div><b>{speaker}</b> ({role}):<br> {msg}</div>
-    </div>
+        <div style='background-color:{bubble_color}; padding:10px; margin:10px; border-radius:10px; text-align:{align};'>
+            <b>{speaker}</b>: {msg}
+        </div>
     """, unsafe_allow_html=True)
-st.markdown("</div>", unsafe_allow_html=True)
 
-# ========== Export Section: Tamil-English Side-by-Side PDF ==========
-if st.button("📄 Export Chat as PDF with Tamil-English"):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt="KCET Chat Transcript", ln=True, align='C')
-    pdf.ln(5)
-    for speaker, msg, role in st.session_state.original_log:
-        en_msg = msg
-        ta_msg = translate_text(msg, "ta")
-        pdf.set_font("Arial", style='B', size=11)
-        pdf.multi_cell(0, 8, f"{speaker} ({role}):", align='L')
-        pdf.set_font("Arial", '', 11)
-        pdf.multi_cell(0, 8, f"EN: {en_msg}")
-        pdf.multi_cell(0, 8, f"TA: {ta_msg}")
-        pdf.ln(4)
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
-        pdf.output(tmp_pdf.name)
-        with open(tmp_pdf.name, "rb") as f:
-            st.download_button("📅 Download Tamil-English PDF", f.read(), file_name="KCET_Chat_Transcript.pdf", mime="application/pdf")
+# Export section
+with st.expander("📤 Export Chat as TXT/DOC and Email"):
+    file_format = st.radio("Select Format", ["TXT", "DOC"])
+    recipients = st.text_input("📧 Enter comma-separated emails", key="multi_email")
+    if st.button("Send Email"):
+        if recipients and file_format:
+            file_path = export_chat_to_text_file(file_format)
+            result = send_email(recipients, "KCET Chat Export", f"Attached is your KCET chat export in {file_format} format.", file_path)
+            if result is True:
+                st.success("✅ Sent successfully to all recipients")
+            else:
+                st.error(f"❌ Email error: {result}")
