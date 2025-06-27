@@ -174,10 +174,41 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# ========== Chat Input Form ==========
+with st.form("chat_form", clear_on_submit=True):
+    col1, col2 = st.columns([10, 1])
+    user_input = col1.text_input("Ask your question...", label_visibility="collapsed")
+    submitted = col2.form_submit_button("➤")
+
+if submitted and user_input.strip():
+    if "original_log" not in st.session_state:
+        st.session_state.original_log = []
+    st.session_state.chat_log.append((st.session_state.user_name, user_input.strip(), "User"))
+    st.session_state.original_log.append((st.session_state.user_name, user_input.strip(), "User"))
+
+    vec = vectorizer.transform([user_input.lower()])
+    similarity = cosine_similarity(vec, vectors)
+    max_sim = similarity.max()
+    idx = similarity.argmax()
+    response = df.iloc[idx]['Answer'] if max_sim >= threshold else "❌ Sorry, I couldn't understand that. Please rephrase."
+
+    st.session_state.typing = True
+    st.rerun()
+
 # ========== AI Typing Animation ==========
 if "typing" in st.session_state and st.session_state.typing:
     with st.spinner("KCET Assistant is typing..."):
         time.sleep(1.5)
+    user_input = st.session_state.chat_log[-1][1]
+    vec = vectorizer.transform([user_input.lower()])
+    similarity = cosine_similarity(vec, vectors)
+    max_sim = similarity.max()
+    idx = similarity.argmax()
+    response = df.iloc[idx]['Answer'] if max_sim >= threshold else "❌ Sorry, I couldn't understand that. Please rephrase."
+
+    st.session_state.chat_log.append(("KCET Assistant", response, "Assistant"))
+    st.session_state.original_log.append(("KCET Assistant", response, "Assistant"))
+    speak_text(response)
     st.session_state.typing = False
 
 # ========== Export Section: Tamil-English Side-by-Side PDF ==========
