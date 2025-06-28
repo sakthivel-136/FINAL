@@ -148,18 +148,16 @@ if st.session_state.page == 2:
 if st.session_state.page == 3:
     st.title("💬 Chat with KCET Bot - Page 3")
 
-   theme_index = st.slider("🎨 Slide to Choose Theme", min_value=0, max_value=2, value=0, format="%d") 
-themes = [
-    ("Blue & Purple", "#d0e8f2", "#d1d1e9"),
-    ("Green & Gray", "#c6f6d5", "#e2e8f0"),
-    ("Yellow & Teal", "#fefcbf", "#81e6d9")
-]
-
-theme_name, user_color, bot_color = themes[theme_index]
-st.session_state.user_color = user_color
-st.session_state.bot_color = bot_color
-st.caption(f"Theme: {theme_name}")
-
+    theme_index = st.slider("🎨 Slide to Choose Theme", min_value=0, max_value=2, value=0, format="%d")
+    themes = [
+        ("Blue & Purple", "#d0e8f2", "#d1d1e9"),
+        ("Green & Gray", "#c6f6d5", "#e2e8f0"),
+        ("Yellow & Teal", "#fefcbf", "#81e6d9")
+    ]
+    theme_name, user_color, bot_color = themes[theme_index]
+    st.session_state.user_color = user_color
+    st.session_state.bot_color = bot_color
+    st.caption(f"Theme: {theme_name}")
 
     user_input = st.text_input("Type your message")
     if user_input:
