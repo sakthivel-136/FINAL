@@ -12,6 +12,8 @@ import openai
 
 # ========== CONFIGURATION ==========
 openai.api_key = "sk-5678ijklmnopabcd5678ijklmnopabcd5678ijkl"
+client = openai.OpenAI()
+
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
 SENDER_PASSWORD = "vwvcwsfffbrvumzh"
 ADMIN_PASSWORD = "qwerty12345"
@@ -146,6 +148,16 @@ elif st.session_state.page == 3:
     st.session_state.user_color = st.sidebar.color_picker("User Bubble", st.session_state.user_color)
     st.session_state.bot_color = st.sidebar.color_picker("Bot Bubble", st.session_state.bot_color)
 
+    lang_btn = st.sidebar.button("🌐 Translate to Tamil" if st.session_state.language == "en" else "🌐 Back to English")
+    if lang_btn:
+        st.session_state.language = "ta" if st.session_state.language == "en" else "en"
+        for i in range(len(st.session_state.original_log)):
+            speaker, msg, role = st.session_state.original_log[i]
+            if role == "Assistant":
+                translated = GoogleTranslator(source='en' if st.session_state.language=='ta' else 'ta', target=st.session_state.language).translate(msg)
+                st.session_state.original_log[i] = (speaker, translated, role)
+        st.rerun()
+
     for speaker, msg, role in st.session_state.original_log:
         align = 'right' if role == "User" else 'left'
         bg_color = st.session_state.user_color if role == "User" else st.session_state.bot_color
@@ -181,7 +193,7 @@ elif st.session_state.page == 3:
         if max_sim >= THRESHOLD:
             response = df.iloc[idx]['Answer']
         else:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": msg}]
             ).choices[0].message.content
