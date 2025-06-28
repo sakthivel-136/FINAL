@@ -116,14 +116,22 @@ if st.session_state.page == 1:
     name = st.text_input("Enter your name")
     email = st.text_input("Enter your email")
     phone = st.text_input("Enter your phone")
-    if st.button("Start Chat"):
-        if name and email and phone:
-            store_user_info(name, email, phone)
-            st.session_state.username = name
-            st.session_state.page = 2
-            st.rerun()
-        else:
-            st.warning("Please fill all fields")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Start Chat"):
+            if name and email and phone:
+                store_user_info(name, email, phone)
+                st.session_state.username = name
+                st.session_state.page = 2
+                st.rerun()
+            else:
+                st.warning("Please fill all fields")
+    with col2:
+        if st.button("Admin Panel"):
+            passwd = st.text_input("Enter Admin Password", type="password")
+            if passwd == ADMIN_PASSWORD:
+                st.session_state.page = 4
+                st.rerun()
 
 # ========== PAGE 2 ==========
 elif st.session_state.page == 2:
@@ -230,38 +238,67 @@ elif st.session_state.page == 3:
                 st.session_state.original_log[i] = (speaker, GoogleTranslator(source='en' if st.session_state.language=='ta' else 'ta', target=st.session_state.language).translate(msg), role)
         st.rerun()
 
-    if st.button("📄 Export Chat as PDF and Email"):
-        pdf_path = export_pdf_from_log()
-        send_email(st.session_state.username + "@example.com", "KCET Chat Log", "Attached is your chat log.", attachment=pdf_path)
-        st.success("PDF exported and emailed successfully!")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📄 Download PDF"):
+            pdf_path = export_pdf_from_log()
+            with open(pdf_path, "rb") as f:
+                st.download_button("Download Chat PDF", f, file_name="kcet_chat.pdf")
 
-    if st.sidebar.button("🔐 Admin Panel"):
-        passwd = st.sidebar.text_input("Enter Admin Password", type="password")
-        if passwd == ADMIN_PASSWORD:
-            st.session_state.page = 4
-            st.rerun()
+    with col2:
+        if st.button("📧 Email Chat PDF"):
+            pdf_path = export_pdf_from_log()
+            send_email(st.session_state.username + "@example.com", "KCET Chat Log", "Attached is your chat log.", attachment=pdf_path)
+            st.success("📬 PDF emailed successfully!")
+# ========== PAGE 4: Admin Dashboard ==========
+if st.session_state.page == 4:
+    st.set_page_config(page_title="KCET Admin Dashboard", layout="wide")
+    st.markdown("""
+        <div style='text-align:center; padding: 10px;'>
+            <h2>🛠️ KCET Admin Dashboard</h2>
+        </div>
+    """, unsafe_allow_html=True)
 
-# ========== PAGE 4: ADMIN ==========
-elif st.session_state.page == 4:
-    st.set_page_config(page_title="Admin Panel", layout="centered")
-    st.markdown("<h3>📊 KCET Admin Dashboard</h3>", unsafe_allow_html=True)
+    if os.path.exists("kcet_logo.png"):
+        st.image("kcet_logo.png", width=100)
 
-    if st.button("⬅ Back to Chat"):
-        st.session_state.page = 3
+    if st.button("⬅ Back to Welcome"):
+        st.session_state.page = 1
         st.rerun()
 
-    conn = sqlite3.connect(DB_FILE)
-    users = pd.read_sql_query("SELECT * FROM users ORDER BY timestamp DESC", conn)
-    chats = pd.read_sql_query("SELECT * FROM chatlog ORDER BY timestamp DESC", conn)
-    conn.close()
+    tab1, tab2 = st.tabs(["📊 User Details", "💬 Chat Logs"])
 
-    st.subheader("📋 Registered Users")
-    st.dataframe(users)
+    with tab1:
+        st.subheader("👤 Registered Users")
+        conn = sqlite3.connect(DB_FILE)
+        users_df = pd.read_sql_query("SELECT * FROM users", conn)
+        st.dataframe(users_df)
 
-    st.subheader("💬 Chat Logs")
-    st.dataframe(chats)
+        col1, col2 = st.columns(2)
+        with col1:
+            csv = users_df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download Users CSV", csv, "users.csv", "text/csv")
+        with col2:
+            if st.button("📧 Email Users CSV"):
+                tmp_file = os.path.join(tempfile.gettempdir(), "users.csv")
+                users_df.to_csv(tmp_file, index=False)
+                send_email(SENDER_EMAIL, "KCET Users List", "Attached is the user list.", tmp_file)
+                st.success("✅ User list emailed!")
 
-    if st.button("⬇ Download All as CSV"):
-        users.to_csv("users.csv", index=False)
-        chats.to_csv("chatlog.csv", index=False)
-        st.success("Files saved as users.csv and chatlog.csv")
+    with tab2:
+        st.subheader("📜 All Chat Logs")
+        logs_df = pd.read_sql_query("SELECT * FROM chatlog ORDER BY timestamp DESC", conn)
+        st.dataframe(logs_df)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            log_csv = logs_df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download Logs CSV", log_csv, "chat_logs.csv", "text/csv")
+        with col2:
+            if st.button("📧 Email Logs CSV"):
+                tmp_log = os.path.join(tempfile.gettempdir(), "chat_logs.csv")
+                logs_df.to_csv(tmp_log, index=False)
+                send_email(SENDER_EMAIL, "KCET Chat Logs", "Attached are the full chat logs.", tmp_log)
+                st.success("✅ Chat logs emailed!")
+
+        conn.close()
