@@ -152,19 +152,20 @@ if st.session_state.page == 3:
         theme_label = st.radio("🎨 Select Chat Theme", ["Modern Blue", "Mint Green", "Elegant Gold"])
 
     themes = {
-        "Modern Blue": ("#e1ecf4", "#d4d9f5"),
-        "Mint Green": ("#d2f4e3", "#e8f6f0"),
-        "Elegant Gold": ("#fff4cc", "#e0f7fa")
+        "Modern Blue": ("#e1ecf4", "#003366"),
+        "Mint Green": ("#d2f4e3", "#004d33"),
+        "Elegant Gold": ("#fff4cc", "#664400")
     }
-    user_color, bot_color = themes[theme_label]
+    user_color, text_color = themes[theme_label]
     st.session_state.user_color = user_color
-    st.session_state.bot_color = bot_color
+    st.session_state.bot_color = user_color
+    text_style = f"color:{text_color};"
 
     st.caption(f"Theme: {theme_label}")
 
     col1, col2 = st.columns([8, 1])
     with col1:
-        user_input = st.text_input("Type your message")
+        user_input = st.text_input("Type your message", key="user_input")
     with col2:
         if st.button("📤"):
             if user_input:
@@ -190,9 +191,9 @@ if st.session_state.page == 3:
 
     for speaker, msg, role in st.session_state.original_log:
         align = 'right' if role == "User" else 'left'
-        color = st.session_state.user_color if role == "User" else st.session_state.bot_color
+        bg_color = st.session_state.user_color if role == "User" else st.session_state.bot_color
         st.markdown(f"""
-            <div style='background-color:{color}; padding:10px; margin:10px; border-radius:10px; text-align:{align};'>
+            <div style='background-color:{bg_color}; padding:10px; margin:10px; border-radius:10px; text-align:{align}; {text_style}'>
                 <b>{speaker}</b>: {msg}
             </div>
         """, unsafe_allow_html=True)
