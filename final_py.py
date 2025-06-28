@@ -23,7 +23,7 @@ SENDER_PASSWORD = "vwvcwsfffbrvumzh"
 # ========== INITIAL STATE ==========
 def init_state():
     defaults = {
-        "page": 1, "dark_mode": False, "img_idx": 0, "autoplay_enabled": True, "music_played": False,
+        "page": 1, "img_idx": 0, "autoplay_enabled": True, "music_played": False,
         "language": "en", "original_log": [], "last_input": "",
         "username": "You", "user_color": "#d0e8f2", "bot_color": "#d1d1e9",
         "enable_export": True, "admin_page": False, "logged_in": False
@@ -101,7 +101,6 @@ def export_pdf_from_log():
 # ========== PAGE 1 ==========
 if st.session_state.page == 1:
     st.set_page_config(page_title="KCET Welcome", layout="centered")
-    st.sidebar.checkbox("🌙 Dark Mode", key="dark_mode")
 
     logo_path = "kcet_logo.png"
     if os.path.exists(logo_path):
@@ -142,13 +141,9 @@ elif st.session_state.page == 2:
 # ========== PAGE 3 ==========
 elif st.session_state.page == 3:
     st.set_page_config(page_title="KCET Chatbot", layout="centered")
-    st.sidebar.checkbox("🌙 Dark Mode", key="dark_mode")
-
-    bg_color = "#1e1e1e" if st.session_state.dark_mode else "#f4f4f4"
-    text_color = "#fff" if st.session_state.dark_mode else "#000"
 
     st.markdown(f"""
-        <div style='text-align:center; background:{bg_color}; color:{text_color}; padding:10px;'>
+        <div style='text-align:center; padding:10px;'>
             <h3>🤖 KCET Chatbot</h3>
         </div>
     """, unsafe_allow_html=True)
