@@ -14,6 +14,7 @@ from deep_translator import GoogleTranslator
 import time
 from docx import Document
 from docx.shared import Pt, RGBColor
+from PIL import Image
 
 # ========== PAGE 1 ==========
 if "page" not in st.session_state:
@@ -40,7 +41,7 @@ if st.session_state.page == 1:
         </div>
     """, unsafe_allow_html=True)
 
-    # Slideshow with autoplay every 3 seconds
+    # Slideshow with autoplay every 3 seconds, forcing all images to same aspect ratio
     image_folder = "college_images"
     images = [f for f in os.listdir(image_folder) if f.endswith((".png", ".jpg", ".jpeg"))]
     image_duration = 3  # seconds
@@ -48,7 +49,25 @@ if st.session_state.page == 1:
     if images:
         current_index = st.session_state.img_idx
         image_path = os.path.join(image_folder, images[current_index])
-        st.image(image_path, use_container_width=True)
+
+        try:
+            img = Image.open(image_path)
+            target_ratio = 16 / 9
+            img_width, img_height = img.size
+            current_ratio = img_width / img_height
+
+            if current_ratio > target_ratio:
+                new_width = int(target_ratio * img_height)
+                offset = (img_width - new_width) // 2
+                img = img.crop((offset, 0, offset + new_width, img_height))
+            elif current_ratio < target_ratio:
+                new_height = int(img_width / target_ratio)
+                offset = (img_height - new_height) // 2
+                img = img.crop((0, offset, img_width, offset + new_height))
+        
+            st.image(img, use_container_width=True)
+        except:
+            st.warning(f"Could not load image: {image_path}")
 
         # Autoplay logic
         now = time.time()
@@ -71,7 +90,7 @@ elif st.session_state.page == 2:
     st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
     # Button to return to main page
-    if st.button("🏠 Main Page"):
+    if st.button("\U0001f3e0 Main Page"):
         st.session_state.page = 1
         st.rerun()
 
