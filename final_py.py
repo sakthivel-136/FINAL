@@ -14,7 +14,6 @@ from deep_translator import GoogleTranslator
 import time
 from docx import Document
 from docx.shared import Pt, RGBColor
-import chatbot_main
 
 # ========== PAGE 1 ==========
 if "page" not in st.session_state:
