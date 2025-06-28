@@ -25,7 +25,7 @@ def init_state():
         "page": 1, "img_idx": 0, "autoplay_enabled": True, "music_played": False,
         "language": "en", "original_log": [], "last_input": "",
         "username": "You", "user_color": "#d0e8f2", "bot_color": "#d1d1e9",
-        "enable_export": True, "admin_page": False
+        "enable_export": True, "admin_page": False, "logged_in": False
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -42,12 +42,24 @@ def init_db():
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            name TEXT, email TEXT, phone TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
     conn.commit()
     conn.close()
 
 def save_to_db(user, role, msg):
     conn = sqlite3.connect(DB_FILE)
     conn.execute("INSERT INTO chatlog (username, role, message) VALUES (?, ?, ?)", (user, role, msg))
+    conn.commit()
+    conn.close()
+
+def store_user_info(name, email, phone):
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("INSERT INTO users (name, email, phone) VALUES (?, ?, ?)", (name, email, phone))
     conn.commit()
     conn.close()
 
@@ -110,14 +122,34 @@ if st.session_state.page == 1:
     images = [f for f in os.listdir("college_images") if f.lower().endswith(('png', 'jpg'))]
     captions = [f.replace("_", " ").split(".")[0] for f in images]
     idx = st.session_state.img_idx
-    col1, col2, col3 = st.columns([1, 6, 1])
-    if col1.button("⟨"):
-        st.session_state.img_idx = (idx - 1) % len(images)
-    if col3.button("⟩"):
-        st.session_state.img_idx = (idx + 1) % len(images)
+
+    st.markdown("""
+    <style>
+    .arrow-btn {
+        position: absolute;
+        top: 50%;
+        font-size: 32px;
+        background-color: transparent;
+        border: none;
+        color: #333;
+    }
+    .left-btn { left: 2%; }
+    .right-btn { right: 2%; }
+    </style>
+    """, unsafe_allow_html=True)
+
     if images:
-        st.image(Image.open(os.path.join("college_images", images[idx])), use_container_width=True)
+        img_path = os.path.join("college_images", images[idx])
+        st.image(Image.open(img_path), use_container_width=True)
         st.caption(captions[idx])
+
+        col1, col2, col3 = st.columns([2, 6, 2])
+        with col1:
+            if st.button("⬅️"):
+                st.session_state.img_idx = (idx - 1) % len(images)
+        with col3:
+            if st.button("➡️"):
+                st.session_state.img_idx = (idx + 1) % len(images)
 
     st.divider()
     st.markdown("### 🔐 Admin Dashboard")
@@ -133,9 +165,18 @@ if st.session_state.page == 1:
             st.error("❌ Incorrect password")
 
     st.divider()
-    if st.button("Go to Chatbot"):
-        st.session_state.page = 99
-        st.rerun()
+    st.markdown("### 👤 User Login")
+    name = st.text_input("Enter Your Name")
+    email = st.text_input("Enter Email")
+    phone = st.text_input("Enter Phone")
+    if st.button("Start Chat"):
+        if name and email and phone:
+            store_user_info(name, email, phone)
+            st.session_state.username = name
+            st.session_state.page = 99
+            st.rerun()
+        else:
+            st.warning("Please fill all fields.")
 
 # ========== PAGE 2: Loader ==========
 elif st.session_state.page == 99:
@@ -146,7 +187,7 @@ elif st.session_state.page == 99:
             <h4 style='margin-top:20px;'>Launching KCET Chatbot...</h4>
         </div>
     """, unsafe_allow_html=True)
-    time.sleep(2.5)
+    time.sleep(3.5)
     st.session_state.page = 2
     st.rerun()
 
@@ -164,7 +205,6 @@ elif st.session_state.page == 2:
     """, unsafe_allow_html=True)
 
     st.sidebar.header("⚙️ Settings")
-    st.session_state.username = st.sidebar.text_input("🧑 Your Name", st.session_state.username)
     st.session_state.user_color = st.sidebar.color_picker("User Color", st.session_state.user_color)
     st.session_state.bot_color = st.sidebar.color_picker("Bot Color", st.session_state.bot_color)
 
@@ -203,9 +243,10 @@ elif st.session_state.page == 2:
     for speaker, msg, role in st.session_state.original_log:
         align = 'right' if role == "User" else 'left'
         color = st.session_state.user_color if role == "User" else st.session_state.bot_color
+        avatar = "👤" if role == "User" else "🤖"
         st.markdown(f"""
             <div style='background-color:{color}; padding:10px; margin:10px; border-radius:10px; text-align:{align};'>
-                <b>{speaker}</b>: {msg}
+                <b>{avatar} {speaker}</b><br>{msg}
             </div>
         """, unsafe_allow_html=True)
 
