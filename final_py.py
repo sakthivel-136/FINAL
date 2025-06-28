@@ -21,8 +21,8 @@ if "page" not in st.session_state:
     st.session_state.page = 1
 if "img_idx" not in st.session_state:
     st.session_state.img_idx = 0
-if "last_autoplay" not in st.session_state:
-    st.session_state.last_autoplay = time.time()
+if "autoplay_enabled" not in st.session_state:
+    st.session_state.autoplay_enabled = True
 
 if st.session_state.page == 1:
     st.set_page_config(page_title="KCET Welcome", layout="centered")
@@ -41,52 +41,64 @@ if st.session_state.page == 1:
         </div>
     """, unsafe_allow_html=True)
 
-    # Slideshow with autoplay every 3 seconds, forcing all images to same aspect ratio
+    # Add background music
+    if os.path.exists("kcet_music.mp3"):
+        audio_file = open("kcet_music.mp3", "rb")
+        audio_bytes = audio_file.read()
+        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+        st.markdown(f"""
+            <audio autoplay loop>
+                <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
+            </audio>
+        """, unsafe_allow_html=True)
+
+    # Slideshow with autoplay every 3 seconds
     image_folder = "college_images"
-    images = [f for f in os.listdir(image_folder) if f.endswith((".png", ".jpg", ".jpeg"))]
-    image_duration = 3  # seconds
+    images = [f for f in os.listdir(image_folder) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+
+    captions = [os.path.splitext(img)[0].replace("_", " ") for img in images]
 
     if images:
-        current_index = st.session_state.img_idx
-        image_path = os.path.join(image_folder, images[current_index])
+        slideshow = st.empty()
+        caption_holder = st.empty()
 
-        try:
-            img = Image.open(image_path)
-            target_ratio = 16 / 9
-            img_width, img_height = img.size
-            current_ratio = img_width / img_height
+        for _ in range(1):  # Run only once unless rerun
+            current_index = st.session_state.img_idx
+            image_path = os.path.join(image_folder, images[current_index])
+            caption = captions[current_index]
+            try:
+                img = Image.open(image_path)
+                target_ratio = 16 / 9
+                width, height = img.size
+                current_ratio = width / height
+                if current_ratio > target_ratio:
+                    new_width = int(target_ratio * height)
+                    offset = (width - new_width) // 2
+                    img = img.crop((offset, 0, offset + new_width, height))
+                elif current_ratio < target_ratio:
+                    new_height = int(width / target_ratio)
+                    offset = (height - new_height) // 2
+                    img = img.crop((0, offset, width, offset + new_height))
 
-            if current_ratio > target_ratio:
-                new_width = int(target_ratio * img_height)
-                offset = (img_width - new_width) // 2
-                img = img.crop((offset, 0, offset + new_width, img_height))
-            elif current_ratio < target_ratio:
-                new_height = int(img_width / target_ratio)
-                offset = (img_height - new_height) // 2
-                img = img.crop((0, offset, img_width, offset + new_height))
-        
-            st.image(img, use_container_width=True)
-        except:
-            st.warning(f"Could not load image: {image_path}")
+                with slideshow.container():
+                    st.image(img, use_container_width=True)
+                with caption_holder.container():
+                    st.markdown(f"<div style='text-align:center; font-size:20px; margin-top:10px; color:#333;'>{caption}</div>", unsafe_allow_html=True)
 
-        # Autoplay logic
-        now = time.time()
-        if "autoplay_started" not in st.session_state:
-            st.session_state.autoplay_started = now
-        elif now - st.session_state.autoplay_started >= image_duration:
+            except:
+                st.warning(f"Could not load image: {image_path}")
+
+            time.sleep(3)
             st.session_state.img_idx = (current_index + 1) % len(images)
-            st.session_state.autoplay_started = now
-            st.rerun()
 
-    # Button to go to Chat Page
+    # Go to chatbot button
     if st.button("Go to Chatbot", help="Enter the assistant page"):
         st.session_state.page = 2
+        st.session_state.autoplay_enabled = False
         st.rerun()
 
 # ========== PAGE 2 (CHATBOT) ==========
 elif st.session_state.page == 2:
-
-    # Inline chatbot_main code
     st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
     # Button to return to main page
@@ -94,7 +106,6 @@ elif st.session_state.page == 2:
         st.session_state.page = 1
         st.rerun()
 
-    # Call chatbot function logic here instead of import to avoid import error
     st.markdown("""
         <div style='text-align:center; margin-top: 50px;'>
             <h3>🤖 KCET Chatbot is now active!</h3>
@@ -103,7 +114,6 @@ elif st.session_state.page == 2:
     """, unsafe_allow_html=True)
 
     # TODO: Replace with your full chatbot logic or import the function if available
-
 
     # ========== EMAIL CREDENTIALS ==========
     SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
