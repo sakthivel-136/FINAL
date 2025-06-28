@@ -142,7 +142,6 @@ elif st.session_state.page == 3:
     st.title("KCET Chatbot 🤖")
     if st.button("🏠 Home"): st.session_state.page = 1; st.rerun()
 
-    # Theme picker only in Page 3
     st.sidebar.header("🎨 Bubble Theme")
     st.session_state.user_color = st.sidebar.color_picker("User Bubble", st.session_state.user_color)
     st.session_state.bot_color = st.sidebar.color_picker("Bot Bubble", st.session_state.bot_color)
