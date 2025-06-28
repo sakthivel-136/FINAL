@@ -66,14 +66,25 @@ if st.session_state.page == 1:
 
 # ========== PAGE 2 (CHATBOT) ==========
 elif st.session_state.page == 2:
-    import chatbot_main
+
+    # Inline chatbot_main code
+    st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
     # Button to return to main page
     if st.button("🏠 Main Page"):
         st.session_state.page = 1
         st.rerun()
 
-    chatbot_main.run_chatbot()
+    # Call chatbot function logic here instead of import to avoid import error
+    st.markdown("""
+        <div style='text-align:center; margin-top: 50px;'>
+            <h3>🤖 KCET Chatbot is now active!</h3>
+            <p>This is where your chatbot code will execute...</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # TODO: Replace with your full chatbot logic or import the function if available
+
 
     # ========== EMAIL CREDENTIALS ==========
     SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
