@@ -67,7 +67,7 @@ def speak_text(text):
 
 @st.cache_data
 def load_vector_data():
-     df = pd.read_csv(CSV_FILE)
+        df = pd.read_csv(CSV_FILE)
         df['Question'] = df['Question'].str.lower().str.strip()
         vec = TfidfVectorizer()
         X = vec.fit_transform(df['Question'])
