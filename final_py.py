@@ -92,9 +92,11 @@ def export_pdf_from_log():
     pdf.add_page()
     pdf.set_font("Arial", size=12)
     for speaker, msg, role in st.session_state.original_log:
-        pdf.multi_cell(0, 10, txt=f"{speaker} ({role}): {msg}")
+        clean_msg = re.sub(r'[^\x00-\x7F]+', '', msg)
+        clean_speaker = re.sub(r'[^\x00-\x7F]+', '', speaker)
+        pdf.multi_cell(0, 10, txt=f"{clean_speaker} ({role}): {clean_msg}")
     path = os.path.join(tempfile.gettempdir(), "kcet_chat.pdf")
-    pdf.output(path)
+    pdf.output(path, "F")
     return path
 
 # ========== PAGE 1: Welcome and Login ==========
@@ -136,6 +138,15 @@ elif st.session_state.page == 2:
 elif st.session_state.page == 3:
     st.set_page_config(page_title="KCET Chatbot", layout="centered")
     st.markdown("<h3 style='text-align:center;'>🤖 KCET Chatbot is now active!</h3>", unsafe_allow_html=True)
+
+    # Display decorative images
+    img_files = [f for f in os.listdir("college_images") if f.lower().endswith((".jpg", ".png", ".jpeg"))]
+    if len(img_files) >= 2:
+        left_img = os.path.join("college_images", img_files[0])
+        right_img = os.path.join("college_images", img_files[1])
+        cols = st.columns([1, 6, 1])
+        with cols[0]: st.image(left_img, width=100)
+        with cols[2]: st.image(right_img, width=100)
 
     if st.button("🏠 Main Page"):
         st.session_state.page = 1
