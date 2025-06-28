@@ -152,9 +152,9 @@ if st.session_state.page == 3:
         theme_label = st.radio("🎨 Select Chat Theme", ["Modern Blue", "Mint Green", "Elegant Gold"])
 
     themes = {
-        "Modern Blue": ("#e1ecf4", "#003366"),
-        "Mint Green": ("#d2f4e3", "#004d33"),
-        "Elegant Gold": ("#fff4cc", "#664400")
+        "Modern Blue": ("#e1ecf4", "#000000"),
+        "Mint Green": ("#d2f4e3", "#000000"),
+        "Elegant Gold": ("#fff4cc", "#000000")
     }
     user_color, text_color = themes[theme_label]
     st.session_state.user_color = user_color
@@ -165,9 +165,10 @@ if st.session_state.page == 3:
 
     col1, col2 = st.columns([8, 1])
     with col1:
-        user_input = st.text_input("Type your message", key="user_input")
+        user_input = st.text_input("Type your message", key="user_input", on_change=lambda: st.session_state.update({'submit_trigger': True}))
     with col2:
-        if st.button("📤"):
+        if st.button("📤") or st.session_state.get("submit_trigger"):
+            st.session_state.submit_trigger = False
             if user_input:
                 vec_data = pd.read_csv(CSV_FILE)
                 questions = vec_data['Question'].str.lower().str.strip()
