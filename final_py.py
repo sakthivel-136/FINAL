@@ -66,21 +66,19 @@ def speak_text(text):
         st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{audio}' type='audio/mp3'></audio>", unsafe_allow_html=True)
 
 @st.cache_data
-
+@st.cache_data
 def load_vector_data():
     if os.path.exists(TFIDF_FILE):
         with open(TFIDF_FILE, "rb") as f:
             return pickle.load(f)
     else:
-        df = pd.read_csv(kcet.csv)
+        df = pd.read_csv(CSV_FILE)  # ✅ FIXED
         df['Question'] = df['Question'].str.lower().str.strip()
         vec = TfidfVectorizer()
         X = vec.fit_transform(df['Question'])
         with open(TFIDF_FILE, "wb") as f:
             pickle.dump((vec, X, df), f)
         return vec, X, df
-
-
 vectorizer, vectors, df = load_vector_data()
 
 def get_gpt_response(prompt):
