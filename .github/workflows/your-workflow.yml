@@ -1,0 +1,8 @@
+env:
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+steps:
+  - name: Run script
+    run: python your_script.py
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
