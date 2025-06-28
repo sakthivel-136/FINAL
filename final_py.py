@@ -146,7 +146,7 @@ if st.session_state.page == 2:
 
 # ========== PAGE 3 ==========
 if st.session_state.page == 3:
-    st.title("💬 Chat with KCET Bot - Page 3")
+    st.title("💬 Chat with KCET Bot")
 
     with st.sidebar:
         theme_label = st.radio("🎨 Select Chat Theme", ["Modern Blue", "Mint Green", "Elegant Gold"])
@@ -162,7 +162,7 @@ if st.session_state.page == 3:
     st.session_state.bot_color = bot_color
     st.caption(f"Theme: {theme_label}")
 
-    user_input = st.text_input("Type your message")
+    user_input = st.text_input("Type your message", key="chat_input")
     if user_input:
         vec_data = pd.read_csv(CSV_FILE)
         questions = vec_data['Question'].str.lower().str.strip()
@@ -188,9 +188,13 @@ if st.session_state.page == 3:
         align = 'right' if role == "User" else 'left'
         color = st.session_state.user_color if role == "User" else st.session_state.bot_color
         st.markdown(f"""
-            <div style='background-color:{color}; padding:10px; margin:10px; border-radius:10px; text-align:{align};'>
+            <div style='background-color:{color}; padding:10px; margin:10px; border-radius:10px; text-align:{align}; 
+                animation: fadeIn 0.4s ease-in;'>
                 <b>{speaker}</b>: {msg}
             </div>
+            <style>
+                @keyframes fadeIn {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
+            </style>
         """, unsafe_allow_html=True)
 
     st.markdown("---")
