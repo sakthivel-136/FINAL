@@ -11,8 +11,10 @@ from email.message import EmailMessage
 import openai
 
 # ========== CONFIGURATION ==========
-openai.api_key = "sk-5678ijklmnopabcd5678ijklmnopabcd5678ijkl"
-client = openai.OpenAI()
+# Load OpenAI API key from environment variable
+openai.api_key = os.getenv("OPENAI_API_KEY")
+if not openai.api_key:
+    st.error("❌ OPENAI_API_KEY environment variable not set.")
 
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
 SENDER_PASSWORD = "vwvcwsfffbrvumzh"
