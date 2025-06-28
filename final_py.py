@@ -187,17 +187,15 @@ if st.session_state.enable_export:
                 result = send_email(
                     recipients,
                     "KCET Chat Export",
-                     f"Attached is your KCET chat in {file_format} format.",
-                     file_path
-        )
-        if result is True:
-            st.success("✅ Email sent successfully")
-        else:
-            st.error(f"❌ Error: {result}")
-    else:
-        st.warning("Please enter valid emails and select a format.")
-
-
+                    f"Attached is your KCET chat in {file_format} format.",
+                    file_path
+                )
+                if result is True:
+                    st.success("✅ Email sent successfully")
+                else:
+                    st.error(f"❌ Error: {result}")
+            else:
+                st.warning("⚠️ Please enter valid emails and select a format.")
 
 # Bottom Controls
 col1, col2 = st.columns(2)
