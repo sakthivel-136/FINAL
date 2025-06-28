@@ -17,3 +17,4 @@ python-magic
 python-docx
 requests
 deep_translator
+openai
