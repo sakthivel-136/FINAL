@@ -144,12 +144,8 @@ if submitted and user_input.strip():
     with st.spinner("KCET Assistant typing..."):
         time.sleep(min(1.5, len(answer)/20))
         speak_text(answer)
-        st.success(answer)
 
 # Translate All Messages
-if "translated" not in st.session_state:
-    st.session_state.translated = False
-
 def translate_all():
     for i in range(len(st.session_state.original_log)):
         speaker, msg, role = st.session_state.original_log[i]
