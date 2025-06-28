@@ -162,8 +162,11 @@ if st.session_state.page == 3:
     st.session_state.bot_color = bot_color
     st.caption(f"Theme: {theme_label}")
 
-    user_input = st.text_input("Type your message", key="chat_input")
-    if user_input:
+    with st.form(key="chat_form"):
+        user_input = st.text_input("Type your message", key="chat_input")
+        submitted = st.form_submit_button("Send")
+
+    if submitted and user_input:
         vec_data = pd.read_csv(CSV_FILE)
         questions = vec_data['Question'].str.lower().str.strip()
         answers = vec_data['Answer']
