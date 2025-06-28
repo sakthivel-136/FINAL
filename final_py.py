@@ -1,72 +1,64 @@
-# KCET Chatbot: Finalized Styling with Pages 1, 2, 3
+# KCET Chatbot Full App: Pages 1, 2, 3, 4
 import streamlit as st
-import base64, os, pickle, re, tempfile, time, sqlite3, smtplib
+import os, base64, re, time, pickle, tempfile, smtplib, sqlite3
 import pandas as pd
-from gtts import gTTS
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from gtts import gTTS
 from deep_translator import GoogleTranslator
 from fpdf import FPDF
 from email.message import EmailMessage
 import openai
 
-# ========== CONFIG ==========
+# ========== CONFIGURATION ==========
 openai.api_key = "sk-5678ijklmnopabcd5678ijklmnopabcd5678ijkl"
-ADMIN_PASSWORD = "kcetadmin123"
-TFIDF_FILE = "vectorized.pkl"
-CSV_FILE = "kcet.csv"
-DB_FILE = "kcet_chatlog.db"
-THRESHOLD = 0.6
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
 SENDER_PASSWORD = "vwvcwsfffbrvumzh"
+ADMIN_PASSWORD = "kcetadmin123"
+DB_FILE = "kcet_chatlog.db"
+CSV_FILE = "kcet.csv"
+TFIDF_FILE = "vectorized.pkl"
+THRESHOLD = 0.6
 
-# ========== INITIAL STATE ==========
+# ========== INITIALIZATION ==========
 def init_state():
     defaults = {
-        "page": 1, "img_idx": 0, "autoplay_enabled": True, "music_played": False,
-        "language": "en", "original_log": [], "last_input": "",
-        "username": "You", "user_color": "#d0e8f2", "bot_color": "#d1d1e9",
-        "enable_export": True, "admin_page": False, "logged_in": False
+        "page": 1, "img_idx": 0, "username": "You", "language": "en",
+        "original_log": [], "last_input": "", "user_color": "#d0e8f2",
+        "bot_color": "#d1d1e9", "export_email": ""
     }
-    for key, val in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = val
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
 
-init_state()
-
-# ========== DB FUNCTIONS ==========
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS chatlog (
             username TEXT, role TEXT, message TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
+        )""")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
             name TEXT, email TEXT, phone TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
+        )""")
     conn.commit()
     conn.close()
 
+init_state()
 init_db()
 
-# ========== UTILS ==========
-def save_to_db(user, role, msg):
-    conn = sqlite3.connect(DB_FILE)
-    conn.execute("INSERT INTO chatlog (username, role, message) VALUES (?, ?, ?)", (user, role, msg))
-    conn.commit()
-    conn.close()
+# ========== UTILITY FUNCTIONS ==========
+def remove_emojis(text):
+    return re.sub(r'[^\x00-\x7F]+', '', text)
 
 def store_user_info(name, email, phone):
     conn = sqlite3.connect(DB_FILE)
     conn.execute("INSERT INTO users (name, email, phone) VALUES (?, ?, ?)", (name, email, phone))
     conn.commit()
     conn.close()
-    send_email(email, "Welcome to KCET Chatbot", f"Hi {name},\n\nThanks for logging into the KCET chatbot.\n\nBest,\nKCET Bot Team")
+    send_email(email, "Welcome to KCET Chatbot", f"Hi {name},\nThanks for logging in.")
 
 def send_email(to_email, subject, body, attachment=None):
     msg = EmailMessage()
@@ -84,38 +76,31 @@ def send_email(to_email, subject, body, attachment=None):
     except Exception as e:
         st.warning(f"Email error: {e}")
 
-# ========== EXPORT ==========
+def save_to_db(user, role, msg):
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("INSERT INTO chatlog (username, role, message) VALUES (?, ?, ?)", (user, role, msg))
+    conn.commit()
+    conn.close()
+
 def export_pdf_from_log():
-    from fpdf import FPDF
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
     for speaker, msg, role in st.session_state.original_log:
-        clean_msg = re.sub(r'[^\x00-\x7F]+', '', msg)
-        clean_speaker = re.sub(r'[^\x00-\x7F]+', '', speaker)
-        pdf.multi_cell(0, 10, txt=f"{clean_speaker} ({role}): {clean_msg}")
+        pdf.multi_cell(0, 10, txt=f"{remove_emojis(speaker)} ({role}): {remove_emojis(msg)}")
     path = os.path.join(tempfile.gettempdir(), "kcet_chat.pdf")
-    pdf.output(path, "F")
+    pdf.output(path)
     return path
 
 # ========== PAGE 1 ==========
 if st.session_state.page == 1:
-    st.set_page_config(page_title="KCET Welcome", layout="centered")
-
-    logo_path = "kcet_logo.png"
-    if os.path.exists(logo_path):
-        st.image(logo_path, width=120)
-
-    st.markdown("""
-        <div style='text-align:center;'>
-            <h2>KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</h2>
-            <p>Welcome to our virtual assistant</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-    name = st.text_input("Enter your name")
-    email = st.text_input("Enter your email")
-    phone = st.text_input("Enter your phone")
+    st.set_page_config("KCET Welcome", layout="centered")
+    if os.path.exists("kcet_logo.png"):
+        st.image("kcet_logo.png", width=120)
+    st.title("KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY")
+    name = st.text_input("Name")
+    email = st.text_input("Email")
+    phone = st.text_input("Phone")
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Start Chat"):
@@ -125,7 +110,7 @@ if st.session_state.page == 1:
                 st.session_state.page = 2
                 st.rerun()
             else:
-                st.warning("Please fill all fields")
+                st.warning("Fill all fields")
     with col2:
         if st.button("Admin Panel"):
             passwd = st.text_input("Enter Admin Password", type="password")
@@ -135,50 +120,32 @@ if st.session_state.page == 1:
 
 # ========== PAGE 2 ==========
 elif st.session_state.page == 2:
-    st.set_page_config(page_title="Loading KCET Chatbot", layout="centered")
-    st.markdown("""
-        <div style='text-align:center; margin-top:100px;'>
-            <img src='https://i.gifer.com/VAyR.gif' width='100'>
-            <h4>Launching KCET Chatbot...</h4>
-        </div>
-    """, unsafe_allow_html=True)
-    time.sleep(2.5)
-    st.session_state.page = 3
-    st.rerun()
+    st.title("Chat Loading")
+    st.session_state.export_email = st.text_input("Enter email to receive chat PDF")
+    if st.button("Continue to Chat"):
+        if st.session_state.export_email:
+            st.session_state.page = 3
+            st.rerun()
+        else:
+            st.warning("Please enter an email")
 
 # ========== PAGE 3 ==========
 elif st.session_state.page == 3:
-    st.set_page_config(page_title="KCET Chatbot", layout="centered")
-
-    st.markdown(f"""
-        <div style='text-align:center; padding:10px;'>
-            <h3>🤖 KCET Chatbot</h3>
-        </div>
-    """, unsafe_allow_html=True)
-
-    if os.path.exists("kcet_logo.png"):
-        st.image("kcet_logo.png", width=80)
-
-    if st.button("🏠 Main Page"):
-        st.session_state.page = 1
-        st.rerun()
+    st.title("KCET Chatbot 🤖")
+    if st.button("🏠 Home"): st.session_state.page = 1; st.rerun()
 
     for speaker, msg, role in st.session_state.original_log:
         align = 'right' if role == "User" else 'left'
-        color = st.session_state.user_color if role == "User" else st.session_state.bot_color
         avatar = "🧑‍🎓" if role == "User" else "🤖"
-        st.markdown(f"""
-            <div style='background-color:{color}; padding:10px; margin:10px; border-radius:10px; text-align:{align};'>
-                <b>{avatar} {speaker}</b>: {msg}
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"<div style='text-align:{align}; background:#eee; padding:10px; border-radius:10px;'>" +
+                    f"<b>{avatar} {speaker}</b>: {msg}</div>", unsafe_allow_html=True)
 
     with st.form("chat_form", clear_on_submit=True):
-        user_input = st.text_input("Ask your question...", value=st.session_state.last_input)
-        submitted = st.form_submit_button("➤")
+        user_input = st.text_input("Ask your question...")
+        submitted = st.form_submit_button("Send")
 
     if submitted and user_input.strip():
-        msg = re.sub(r'[^\x00-\x7F]+', '', user_input.strip())
+        msg = remove_emojis(user_input.strip())
         st.session_state.original_log.append((st.session_state.username, msg, "User"))
         save_to_db(st.session_state.username, "User", msg)
 
@@ -203,8 +170,7 @@ elif st.session_state.page == 3:
         else:
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
-                messages=[{"role": "system", "content": "You are a helpful KCET assistant."},
-                         {"role": "user", "content": msg}]
+                messages=[{"role": "user", "content": msg}]
             ).choices[0].message.content
 
         if st.session_state.language == "ta":
@@ -212,46 +178,27 @@ elif st.session_state.page == 3:
 
         st.session_state.original_log.append(("KCET Assistant", response, "Assistant"))
         save_to_db("KCET Assistant", "Assistant", response)
-        time.sleep(min(2.0, len(response)/30))
 
         tts = gTTS(text=response, lang='ta' if st.session_state.language == "ta" else 'en')
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
             tts.save(fp.name)
             audio_base64 = base64.b64encode(open(fp.name, "rb").read()).decode()
-            audio_html = f"""
-                <audio autoplay>
-                    <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
-                </audio>
-            """
-            st.markdown(audio_html, unsafe_allow_html=True)
-
-    if st.button("🧹 Clear Chat"):
-        st.session_state.original_log.clear()
-        st.session_state.last_input = ""
-        st.rerun()
-
-    if st.button("🔄 Translate to Tamil" if st.session_state.language == "en" else "↩ Back to English"):
-        st.session_state.language = "ta" if st.session_state.language == "en" else "en"
-        for i in range(len(st.session_state.original_log)):
-            speaker, msg, role = st.session_state.original_log[i]
-            if role == "Assistant":
-                st.session_state.original_log[i] = (speaker, GoogleTranslator(source='en' if st.session_state.language=='ta' else 'ta', target=st.session_state.language).translate(msg), role)
-        st.rerun()
+            st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{audio_base64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
     with col1:
         if st.button("📄 Download PDF"):
             pdf_path = export_pdf_from_log()
             with open(pdf_path, "rb") as f:
-                st.download_button("Download Chat PDF", f, file_name="kcet_chat.pdf")
-
+                st.download_button("Download PDF", f, file_name="kcet_chat.pdf")
     with col2:
-        if st.button("📧 Email Chat PDF"):
+        if st.button("📧 Email PDF"):
             pdf_path = export_pdf_from_log()
-            send_email(st.session_state.username + "@example.com", "KCET Chat Log", "Attached is your chat log.", attachment=pdf_path)
-            st.success("📬 PDF emailed successfully!")
+            send_email(st.session_state.export_email, "KCET Chat Log", "Here is your chat log.", pdf_path)
+            st.success("Email sent")
+
 # ========== PAGE 4: Admin Dashboard ==========
-if st.session_state.page == 4:
+elif st.session_state.page == 4:
     st.set_page_config(page_title="KCET Admin Dashboard", layout="wide")
     st.markdown("""
         <div style='text-align:center; padding: 10px;'>
