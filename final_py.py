@@ -78,7 +78,6 @@ def load_vector_data():
         with open(TFIDF_FILE, "wb") as f:
             pickle.dump((vec, X, df), f)
         return vec, X, df
-
 vectorizer, vectors, df = load_vector_data()
 
 def get_gpt_response(prompt):
