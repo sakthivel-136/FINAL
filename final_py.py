@@ -156,59 +156,60 @@ if st.session_state.page == 3:
         "Mint Green": ("#d2f4e3", "#e8f6f0"),
         "Elegant Gold": ("#fff4cc", "#e0f7fa")
     }
-
     user_color, bot_color = themes[theme_label]
     st.session_state.user_color = user_color
     st.session_state.bot_color = bot_color
+
     st.caption(f"Theme: {theme_label}")
 
-    with st.form(key="chat_form"):
-        user_input = st.text_input("Type your message", key="chat_input")
-        submitted = st.form_submit_button("Send")
+    col1, col2 = st.columns([8, 1])
+    with col1:
+        user_input = st.text_input("Type your message")
+    with col2:
+        if st.button("📤"):
+            if user_input:
+                vec_data = pd.read_csv(CSV_FILE)
+                questions = vec_data['Question'].str.lower().str.strip()
+                answers = vec_data['Answer']
+                vectorizer = TfidfVectorizer()
+                vectors = vectorizer.fit_transform(questions)
+                input_vec = vectorizer.transform([user_input.lower()])
+                similarity = cosine_similarity(input_vec, vectors)
+                idx = similarity.argmax()
+                max_sim = similarity.max()
+                answer = answers[idx] if max_sim >= THRESHOLD else "Sorry, I couldn't understand that."
 
-    if submitted and user_input:
-        vec_data = pd.read_csv(CSV_FILE)
-        questions = vec_data['Question'].str.lower().str.strip()
-        answers = vec_data['Answer']
-        vectorizer = TfidfVectorizer()
-        vectors = vectorizer.fit_transform(questions)
-        input_vec = vectorizer.transform([user_input.lower()])
-        similarity = cosine_similarity(input_vec, vectors)
-        idx = similarity.argmax()
-        max_sim = similarity.max()
-        answer = answers[idx] if max_sim >= THRESHOLD else "Sorry, I couldn't understand that."
+                if st.session_state.language == "ta":
+                    answer = GoogleTranslator(source='en', target='ta').translate(answer)
 
-        if st.session_state.language == "ta":
-            answer = GoogleTranslator(source='en', target='ta').translate(answer)
-
-        st.session_state.original_log.append((st.session_state.username, user_input, "User"))
-        st.session_state.original_log.append(("KCET Bot", answer, "Assistant"))
-        save_to_db(st.session_state.username, "User", user_input)
-        save_to_db("KCET Bot", "Assistant", answer)
-        st.rerun()
+                st.session_state.original_log.append((st.session_state.username, user_input, "User"))
+                st.session_state.original_log.append(("KCET Bot", answer, "Assistant"))
+                save_to_db(st.session_state.username, "User", user_input)
+                save_to_db("KCET Bot", "Assistant", answer)
+                st.rerun()
 
     for speaker, msg, role in st.session_state.original_log:
         align = 'right' if role == "User" else 'left'
         color = st.session_state.user_color if role == "User" else st.session_state.bot_color
         st.markdown(f"""
-            <div style='background-color:{color}; padding:10px; margin:10px; border-radius:10px; text-align:{align}; 
-                animation: fadeIn 0.4s ease-in;'>
+            <div style='background-color:{color}; padding:10px; margin:10px; border-radius:10px; text-align:{align};'>
                 <b>{speaker}</b>: {msg}
             </div>
-            <style>
-                @keyframes fadeIn {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
-            </style>
         """, unsafe_allow_html=True)
 
     st.markdown("---")
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
+        if st.button("🗑️ Clear Chat"):
+            st.session_state.original_log.clear()
+            st.rerun()
+    with col2:
         if st.button("📤 Export Chat to PDF", use_container_width=True):
             pdf_path = export_pdf_from_log()
             st.success("PDF exported!")
             with open(pdf_path, "rb") as f:
                 st.download_button("Download PDF", f, file_name="kcet_chat.pdf")
-    with col2:
+    with col3:
         if st.button("📧 Send Email", use_container_width=True):
             if st.session_state.export_email:
                 pdf_path = export_pdf_from_log()
@@ -217,7 +218,7 @@ if st.session_state.page == 3:
             else:
                 st.warning("Enter your email above")
 
-    if st.button("🏠 Back to Main Page", use_container_width=True):
+    if st.button("🚪 Logout", use_container_width=True):
         st.session_state.page = 1
         st.rerun()
 
