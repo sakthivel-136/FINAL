@@ -1,31 +1,40 @@
 import streamlit as st
 import base64
 import os
+import pandas as pd
+import pickle
+import smtplib
+import re
+from email.message import EmailMessage
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from gtts import gTTS
+import tempfile
+from deep_translator import GoogleTranslator
 import time
+from docx import Document
+from docx.shared import Pt, RGBColor
+from PIL import Image
+import chatbot_main
 
-# ========== INITIAL SESSION STATE ==========
+# ========== PAGE 1 ==========
 if "page" not in st.session_state:
     st.session_state.page = 1
 if "img_idx" not in st.session_state:
     st.session_state.img_idx = 0
-if "last_autoplay" not in st.session_state:
-    st.session_state.last_autoplay = time.time()
-if "mute_music" not in st.session_state:
-    st.session_state.mute_music = False
+if "autoplay_enabled" not in st.session_state:
+    st.session_state.autoplay_enabled = True
 
-# ========== COMMON UTILS ==========
-def load_logo():
-    try:
-        with open("kcet_logo.png", "rb") as img_file:
-            return base64.b64encode(img_file.read()).decode()
-    except:
-        return ""
-
-# ========== PAGE 1: WELCOME SLIDESHOW ==========
 if st.session_state.page == 1:
     st.set_page_config(page_title="KCET Welcome", layout="centered")
 
-    logo_base64 = load_logo()
+    # Load Logo
+    try:
+        with open("kcet_logo.png", "rb") as img_file:
+            logo_base64 = base64.b64encode(img_file.read()).decode()
+    except:
+        logo_base64 = ""
+
     st.markdown("""
         <div style='text-align:center; padding: 30px;'>
             <img src='data:image/png;base64,""" + logo_base64 + """' style='height:100px; width:100px; border-radius:50%;'>
@@ -33,97 +42,95 @@ if st.session_state.page == 1:
         </div>
     """, unsafe_allow_html=True)
 
-    # ========== MUSIC PLAYER ==========
-    with open("kcet_music.mp3", "rb") as music_file:
-        music_data = base64.b64encode(music_file.read()).decode()
-
-    mute_toggle = st.checkbox("🔇 Mute Music", value=st.session_state.mute_music)
-    st.session_state.mute_music = mute_toggle
-
-    if not mute_toggle:
+    # Add background music
+    if os.path.exists("kcet_music.mp3"):
+        audio_file = open("kcet_music.mp3", "rb")
+        audio_bytes = audio_file.read()
+        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
         st.markdown(f"""
-        <audio autoplay loop>
-            <source src="data:audio/mp3;base64,{music_data}" type="audio/mp3">
-        </audio>
+            <audio autoplay loop>
+                <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
+            </audio>
         """, unsafe_allow_html=True)
 
-    # ========== SLIDESHOW ==========
+    # Slideshow with autoplay every 3 seconds
     image_folder = "college_images"
     images = [f for f in os.listdir(image_folder) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
-    image_duration = 3
+
+    captions = [os.path.splitext(img)[0].replace("_", " ") for img in images]
 
     if images:
-        current_index = st.session_state.img_idx
-        image_path = os.path.join(image_folder, images[current_index])
-        caption = os.path.splitext(images[current_index])[0].replace("_", " ").title()
+        slideshow = st.empty()
+        caption_holder = st.empty()
 
-        with open(image_path, "rb") as img_f:
-            img_data = base64.b64encode(img_f.read()).decode()
+        for _ in range(1):  # Run only once unless rerun
+            current_index = st.session_state.img_idx
+            image_path = os.path.join(image_folder, images[current_index])
+            caption = captions[current_index]
+            try:
+                img = Image.open(image_path)
+                target_ratio = 16 / 9
+                width, height = img.size
+                current_ratio = width / height
+                if current_ratio > target_ratio:
+                    new_width = int(target_ratio * height)
+                    offset = (width - new_width) // 2
+                    img = img.crop((offset, 0, offset + new_width, height))
+                elif current_ratio < target_ratio:
+                    new_height = int(width / target_ratio)
+                    offset = (height - new_height) // 2
+                    img = img.crop((0, offset, width, offset + new_height))
 
-        st.markdown(f"""
-            <div style="animation: fadeIn 1s; text-align:center;">
-                <img src="data:image/png;base64,{img_data}" style="max-width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:10px;">
-                <p style="font-weight:bold; margin-top:10px;">{caption}</p>
-            </div>
-            <style>
-                @keyframes fadeIn {{
-                    from {{opacity: 0;}}
-                    to {{opacity: 1;}}
-                }}
-            </style>
-        """, unsafe_allow_html=True)
+                with slideshow.container():
+                    st.markdown("<div style='animation:fadein 1s;'>", unsafe_allow_html=True)
+                    st.image(img, use_container_width=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                with caption_holder.container():
+                    st.markdown(f"<div style='text-align:center; font-size:20px; margin-top:10px; color:#333;'>{caption}</div>", unsafe_allow_html=True)
 
-        now = time.time()
-        if "autoplay_started" not in st.session_state:
-            st.session_state.autoplay_started = now
-        elif now - st.session_state.autoplay_started >= image_duration:
+            except:
+                st.warning(f"Could not load image: {image_path}")
+
+            time.sleep(3)
             st.session_state.img_idx = (current_index + 1) % len(images)
-            st.session_state.autoplay_started = now
-            st.rerun()
 
-    # Loader animation on navigation
-    loader_script = """
-        <script>
-            function showLoaderThenRedirect() {
-                document.body.innerHTML = `<div style='text-align:center;padding:100px;'>
-                    <h3>Loading Chatbot...</h3>
-                    <div class='loader'></div>
-                    <style>
-                        .loader {{
-                            border: 6px solid #f3f3f3;
-                            border-top: 6px solid #3498db;
-                            border-radius: 50%;
-                            width: 40px;
-                            height: 40px;
-                            animation: spin 1s linear infinite;
-                            margin:auto;
-                        }}
-                        @keyframes spin {{
-                            0% {{ transform: rotate(0deg); }}
-                            100% {{ transform: rotate(360deg); }}
-                        }}
-                    </style>
-                </div>`;
-                setTimeout(function() {{
-                    fetch("/_stcore/set_script_run_ctx?key=rerun", {{method: "POST"}})
-                }}, 1500);
-            }
-        </script>
-    """
-    st.markdown(loader_script, unsafe_allow_html=True)
+    # Go to chatbot button
+    if st.button("Go to Chatbot", help="Enter the assistant page"):
+        st.session_state.page = 99
+        st.session_state.autoplay_enabled = False
+        st.rerun()
 
-    if st.button("Go to Chatbot", help="Enter the assistant page", on_click=lambda: setattr(st.session_state, "page", 2)):
-        st.markdown("<script>showLoaderThenRedirect();</script>", unsafe_allow_html=True)
+# ========== PAGE 99 (Loader before Chatbot) ==========
+elif st.session_state.page == 99:
+    st.set_page_config(page_title="Loading KCET Chatbot", layout="centered")
+    st.markdown("""
+        <div style='text-align:center; margin-top:100px;'>
+            <img src='https://i.gifer.com/VAyR.gif' width='100'>
+            <h4 style='margin-top:20px;'>Launching KCET Chatbot...</h4>
+        </div>
+    """, unsafe_allow_html=True)
+    time.sleep(2.5)
+    st.session_state.page = 2
+    st.rerun()
 
-# ========== PAGE 2: IMPORT CHATBOT MAIN ==========
+# ========== PAGE 2 (CHATBOT) ==========
 elif st.session_state.page == 2:
-    import chatbot_main
+    st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
-    if st.button("🏠 Main Page"):
+    # Button to return to main page
+    if st.button("\U0001f3e0 Main Page"):
         st.session_state.page = 1
         st.rerun()
 
+    st.markdown("""
+        <div style='text-align:center; margin-top: 50px;'>
+            <h3>🤖 KCET Chatbot is now active!</h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Run chatbot logic
     chatbot_main.run_chatbot()
+
 
 
     # ========== EMAIL CREDENTIALS ==========
