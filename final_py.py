@@ -20,8 +20,6 @@ if "page" not in st.session_state:
     st.session_state.page = 1
 if "img_idx" not in st.session_state:
     st.session_state.img_idx = 0
-if "trigger_image_refresh" not in st.session_state:
-    st.session_state.trigger_image_refresh = False
 
 if st.session_state.page == 1:
     st.set_page_config(page_title="KCET Welcome", layout="centered")
@@ -40,20 +38,19 @@ if st.session_state.page == 1:
         </div>
     """, unsafe_allow_html=True)
 
-    # Slideshow
+    # Slideshow with autoplay
     image_folder = "college_images"
     images = [f for f in os.listdir(image_folder) if f.endswith((".png", ".jpg", ".jpeg"))]
+    image_duration = 3  # seconds
+
     if images:
-        if st.session_state.get("trigger_image_refresh"):
-            st.session_state.trigger_image_refresh = False
-            st.experimental_rerun()
+        current_index = st.session_state.get("img_idx", 0)
+        image_path = os.path.join(image_folder, images[current_index])
+        st.image(image_path, use_container_width=True)
 
-        st.image(os.path.join(image_folder, images[st.session_state.img_idx]), use_column_width=True)
-
-        if st.button("▶️ Next Image"):
-            st.session_state.img_idx = (st.session_state.img_idx + 1) % len(images)
-            st.session_state.trigger_image_refresh = True
-            st.stop()
+        time.sleep(image_duration)
+        st.session_state.img_idx = (current_index + 1) % len(images)
+        st.experimental_rerun()
 
     # Button to go to Chat Page
     if st.button("Go to Chatbot", help="Enter the assistant page"):
@@ -62,6 +59,9 @@ if st.session_state.page == 1:
 
 # ========== PAGE 2 (CHATBOT) ==========
 elif st.session_state.page == 2:
+    # (No changes required here for the use_container_width update)
+    ...  # Rest of the chatbot code remains the same
+
     st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
     # Button to return to main page
