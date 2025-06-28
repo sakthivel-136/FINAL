@@ -46,7 +46,7 @@ if st.session_state.page == 1:
     image_duration = 3  # seconds
 
     if images:
-        current_index = st.session_state.get("img_idx", 0)
+        current_index = st.session_state.img_idx
         image_path = os.path.join(image_folder, images[current_index])
         st.image(image_path, use_container_width=True)
 
@@ -63,6 +63,9 @@ if st.session_state.page == 1:
 
 # ========== PAGE 2 (CHATBOT) ==========
 elif st.session_state.page == 2:
+    # (No changes required here for the use_container_width update)
+    ...  # Rest of the chatbot code remains the same
+
   
     st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
