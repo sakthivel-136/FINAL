@@ -194,4 +194,4 @@ else:
             smtp.login(email, "your_app_password")
             smtp.send_message(msg)
         st.success("✅ PDF exported and emailed successfully!")
-```
+
