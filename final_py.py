@@ -182,10 +182,19 @@ if st.session_state.enable_export:
                 return tmp.name
 
         if st.button("Send Email"):
-            if recipients and file_format:
-                file_path = export_chat(file_format)
-                result = send_email(recipients, "KCET Chat Export", f"Attached is your KCET chat in {file_format} format.", file_path)
-                st.success("✅ Email sent successfully") if result is True else st.error(f"❌ Error: {result}")
+    if recipients and file_format:
+        file_path = export_chat(file_format)
+        result = send_email(
+            recipients,
+            "KCET Chat Export",
+            f"Attached is your KCET chat in {file_format} format.",
+            file_path
+        )
+        if result is True:
+            st.success("✅ Email sent successfully")
+        else:
+            st.error(f"❌ Error: {result}")
+
 
 # Bottom Controls
 col1, col2 = st.columns(2)
