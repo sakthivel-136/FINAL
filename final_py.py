@@ -12,6 +12,9 @@ import tempfile
 import base64
 from deep_translator import GoogleTranslator
 import time
+from docx import Document
+from docx.shared import Pt, RGBColor
+from docx.oxml.ns import qn
 
 # ========== EMAIL CREDENTIALS ==========
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
@@ -175,11 +178,26 @@ if st.session_state.enable_export:
         recipients = st.text_input("📧 Enter comma-separated emails")
 
         def export_chat(ext):
-            content = "\n".join([f"{s} ({r}): {m}" for s, m, r in st.session_state.original_log])
-            suffix = ".doc" if ext == "DOC" else ".txt"
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix, mode="w", encoding="utf-8") as tmp:
-                tmp.write(content)
-                return tmp.name
+            content = [(s, r, m) for s, m, r in st.session_state.original_log]
+            if ext == "DOC":
+                doc = Document()
+                doc.add_heading("KCET Chat Export", 0)
+                style = doc.styles['Normal']
+                font = style.font
+                font.name = 'Calibri'
+                font.size = Pt(11)
+                font.color.rgb = RGBColor(0, 0, 0)
+                for speaker, role, message in content:
+                    p = doc.add_paragraph()
+                    p.add_run(f"{speaker} ({role}): ").bold = True
+                    p.add_run(message)
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
+                    doc.save(tmp.name)
+                    return tmp.name
+            else:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode="w", encoding="utf-8") as tmp:
+                    tmp.write("\n".join([f"{s} ({r}): {m}" for s, r, m in content]))
+                    return tmp.name
 
         if st.button("Send Email"):
             if recipients and file_format:
