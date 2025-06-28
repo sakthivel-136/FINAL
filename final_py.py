@@ -57,7 +57,7 @@ if st.session_state.page == 1:
         elif now - st.session_state.autoplay_started >= image_duration:
             st.session_state.img_idx = (current_index + 1) % len(images)
             st.session_state.autoplay_started = now
-            st.experimental_rerun()
+            st.rerun()
 
     # Button to go to Chat Page
     if st.button("Go to Chatbot", help="Enter the assistant page"):
@@ -74,7 +74,6 @@ elif st.session_state.page == 2:
         st.rerun()
 
     chatbot_main.run_chatbot()
-
 
     # ========== EMAIL CREDENTIALS ==========
     SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
