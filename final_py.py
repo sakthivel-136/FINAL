@@ -25,7 +25,8 @@ def init_state():
     defaults = {
         "page": 1, "img_idx": 0, "username": "You", "language": "en",
         "original_log": [], "last_input": "", "user_color": "#d0e8f2",
-        "bot_color": "#d1d1e9", "export_email": "", "admin_pass": ""
+        "bot_color": "#d1d1e9", "export_email": "", "admin_pass": "",
+        "admin_triggered": False
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -101,10 +102,6 @@ if st.session_state.page == 1:
     name = st.text_input("Name")
     email = st.text_input("Email")
     phone = st.text_input("Phone")
-    st.session_state.admin_pass = st.text_input("Enter Admin Password", type="password")
-
-    st.session_state.user_color = st.color_picker("Pick User Bubble Color", st.session_state.user_color)
-    st.session_state.bot_color = st.color_picker("Pick Bot Bubble Color", st.session_state.bot_color)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -118,6 +115,11 @@ if st.session_state.page == 1:
                 st.warning("Fill all fields")
     with col2:
         if st.button("Admin Panel"):
+            st.session_state.admin_triggered = True
+
+    if st.session_state.admin_triggered:
+        st.session_state.admin_pass = st.text_input("Enter Admin Password", type="password")
+        if st.session_state.admin_pass:
             if st.session_state.admin_pass == ADMIN_PASSWORD:
                 st.session_state.page = 4
                 st.rerun()
@@ -140,7 +142,7 @@ elif st.session_state.page == 3:
     st.title("KCET Chatbot 🤖")
     if st.button("🏠 Home"): st.session_state.page = 1; st.rerun()
 
-    # Bubble Theme Picker in Chat Page
+    # Theme picker only in Page 3
     st.sidebar.header("🎨 Bubble Theme")
     st.session_state.user_color = st.sidebar.color_picker("User Bubble", st.session_state.user_color)
     st.session_state.bot_color = st.sidebar.color_picker("Bot Bubble", st.session_state.bot_color)
