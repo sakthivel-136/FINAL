@@ -51,25 +51,22 @@ if st.session_state.page == 1:
         st.image(image_path, use_container_width=True)
 
         # Autoplay logic
+        now = time.time()
         if "autoplay_started" not in st.session_state:
-            st.session_state.autoplay_started = time.time()
-        elif time.time() - st.session_state.autoplay_started >= image_duration:
+            st.session_state.autoplay_started = now
+        elif now - st.session_state.autoplay_started >= image_duration:
             st.session_state.img_idx = (current_index + 1) % len(images)
-            st.session_state.autoplay_started = time.time()
-            st.experimental_rerun()
+            st.session_state.autoplay_started = now
+            st.rerun()
 
     # Button to go to Chat Page
     if st.button("Go to Chatbot", help="Enter the assistant page"):
         st.session_state.page = 2
-        st.experimental_rerun()
+        st.rerun()
 
 # ========== PAGE 2 (CHATBOT) ==========
 elif st.session_state.page == 2:
-    # (No changes required here for the use_container_width update)
-    ...  # Rest of the chatbot code remains the same
-
-
-  
+    
     st.set_page_config(page_title="KCET Chatbot", layout="centered")
 
     # Button to return to main page
