@@ -64,10 +64,13 @@ def send_email(recipient_emails, subject, body, attachment_path):
 
 @st.cache_data
 def load_vector_data():
-    if os.path.exists(tf_vector_file):
-        with open(tf_vector_file, "rb") as f:
-            vectorizer, vectors, df = pickle.load(f)
-    else:
+    try:
+        if os.path.exists(tf_vector_file):
+            with open(tf_vector_file, "rb") as f:
+                vectorizer, vectors, df = pickle.load(f)
+        else:
+            raise Exception("File missing or invalid format")
+    except:
         df = pd.read_csv(csv_file)
         df['Question'] = df['Question'].str.lower().str.strip()
         vectorizer = TfidfVectorizer()
