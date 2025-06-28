@@ -105,17 +105,30 @@ if st.session_state.page == 1:
     st.title("KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY")
     play_welcome_audio()
     st.markdown("---")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("""<style>.stButton > button {background-color:#0052cc;color:white;border-radius:8px;padding:10px 16px;font-weight:bold;}</style>""", unsafe_allow_html=True)
-        if st.button("🎓 Enter Chatbot"):
+
+    st.subheader("📝 Enter Your Details")
+    with st.form("user_details_form"):
+        name = st.text_input("Name")
+        email = st.text_input("Email")
+        phone = st.text_input("Phone")
+        submit = st.form_submit_button("Start Chatbot 🎓")
+
+    if submit:
+        if not name or not email or not phone:
+            st.warning("⚠️ Please fill all fields.")
+        else:
+            store_user_info(name, email, phone)
+            st.session_state.username = name
+            st.session_state.export_email = email
+            st.success("✅ Confirmation Email Sent!")
             st.session_state.page = 2
             st.rerun()
-    with col2:
-        if st.button("🔐 Admin Panel"):
-            st.session_state.admin_triggered = True
-            st.session_state.page = 4
-            st.rerun()
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+    if st.button("🔐 Admin Panel"):
+        st.session_state.admin_triggered = True
+        st.session_state.page = 4
+        st.rerun()
 
 elif st.session_state.page == 2:
     st.title("📩 Enter Your Email to Receive Export")
