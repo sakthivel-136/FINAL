@@ -3,12 +3,9 @@ import streamlit as st
 import base64, os, pickle, re, tempfile, time, sqlite3, smtplib
 import pandas as pd
 from gtts import gTTS
-from PIL import Image
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from deep_translator import GoogleTranslator
-from docx import Document
-from docx.shared import Pt
 from fpdf import FPDF
 from email.message import EmailMessage
 import openai
@@ -26,7 +23,7 @@ SENDER_PASSWORD = "vwvcwsfffbrvumzh"
 # ========== INITIAL STATE ==========
 def init_state():
     defaults = {
-        "page": 1, "img_idx": 0, "autoplay_enabled": True, "music_played": False,
+        "page": 1, "dark_mode": False, "img_idx": 0, "autoplay_enabled": True, "music_played": False,
         "language": "en", "original_log": [], "last_input": "",
         "username": "You", "user_color": "#d0e8f2", "bot_color": "#d1d1e9",
         "enable_export": True, "admin_page": False, "logged_in": False
@@ -57,6 +54,7 @@ def init_db():
 
 init_db()
 
+# ========== UTILS ==========
 def save_to_db(user, role, msg):
     conn = sqlite3.connect(DB_FILE)
     conn.execute("INSERT INTO chatlog (username, role, message) VALUES (?, ?, ?)", (user, role, msg))
@@ -68,7 +66,7 @@ def store_user_info(name, email, phone):
     conn.execute("INSERT INTO users (name, email, phone) VALUES (?, ?, ?)", (name, email, phone))
     conn.commit()
     conn.close()
-    send_email(email, "Welcome to KCET Chatbot", f"Hi {name},\n\nThanks for logging into the KCET chatbot. We're here to assist you.\n\nBest,\nKCET Bot Team")
+    send_email(email, "Welcome to KCET Chatbot", f"Hi {name},\n\nThanks for logging into the KCET chatbot.\n\nBest,\nKCET Bot Team")
 
 def send_email(to_email, subject, body, attachment=None):
     msg = EmailMessage()
@@ -86,8 +84,9 @@ def send_email(to_email, subject, body, attachment=None):
     except Exception as e:
         st.warning(f"Email error: {e}")
 
-# ========== EXPORT FUNCTIONS ==========
+# ========== EXPORT ==========
 def export_pdf_from_log():
+    from fpdf import FPDF
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
@@ -99,12 +98,18 @@ def export_pdf_from_log():
     pdf.output(path, "F")
     return path
 
-# ========== PAGE 1: Welcome and Login ==========
+# ========== PAGE 1 ==========
 if st.session_state.page == 1:
     st.set_page_config(page_title="KCET Welcome", layout="centered")
+    st.sidebar.checkbox("🌙 Dark Mode", key="dark_mode")
+
+    logo_path = "kcet_logo.png"
+    if os.path.exists(logo_path):
+        st.image(logo_path, width=120)
+
     st.markdown("""
-        <div style='text-align:center; padding: 20px;'>
-            <h2>🟣 KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</h2>
+        <div style='text-align:center;'>
+            <h2>KAMARAJ COLLEGE OF ENGINEERING AND TECHNOLOGY</h2>
             <p>Welcome to our virtual assistant</p>
         </div>
     """, unsafe_allow_html=True)
@@ -121,32 +126,35 @@ if st.session_state.page == 1:
         else:
             st.warning("Please fill all fields")
 
-# ========== PAGE 2: Loader ==========
+# ========== PAGE 2 ==========
 elif st.session_state.page == 2:
     st.set_page_config(page_title="Loading KCET Chatbot", layout="centered")
     st.markdown("""
         <div style='text-align:center; margin-top:100px;'>
             <img src='https://i.gifer.com/VAyR.gif' width='100'>
-            <h4 style='margin-top:20px;'>Launching KCET Chatbot...</h4>
+            <h4>Launching KCET Chatbot...</h4>
         </div>
     """, unsafe_allow_html=True)
     time.sleep(2.5)
     st.session_state.page = 3
     st.rerun()
 
-# ========== PAGE 3: Chatbot ==========
+# ========== PAGE 3 ==========
 elif st.session_state.page == 3:
     st.set_page_config(page_title="KCET Chatbot", layout="centered")
-    st.markdown("<h3 style='text-align:center;'>🤖 KCET Chatbot is now active!</h3>", unsafe_allow_html=True)
+    st.sidebar.checkbox("🌙 Dark Mode", key="dark_mode")
 
-    # Display decorative images
-    img_files = [f for f in os.listdir("college_images") if f.lower().endswith((".jpg", ".png", ".jpeg"))]
-    if len(img_files) >= 2:
-        left_img = os.path.join("college_images", img_files[0])
-        right_img = os.path.join("college_images", img_files[1])
-        cols = st.columns([1, 6, 1])
-        with cols[0]: st.image(left_img, width=100)
-        with cols[2]: st.image(right_img, width=100)
+    bg_color = "#1e1e1e" if st.session_state.dark_mode else "#f4f4f4"
+    text_color = "#fff" if st.session_state.dark_mode else "#000"
+
+    st.markdown(f"""
+        <div style='text-align:center; background:{bg_color}; color:{text_color}; padding:10px;'>
+            <h3>🤖 KCET Chatbot</h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    if os.path.exists("kcet_logo.png"):
+        st.image("kcet_logo.png", width=80)
 
     if st.button("🏠 Main Page"):
         st.session_state.page = 1
@@ -231,3 +239,34 @@ elif st.session_state.page == 3:
         pdf_path = export_pdf_from_log()
         send_email(st.session_state.username + "@example.com", "KCET Chat Log", "Attached is your chat log.", attachment=pdf_path)
         st.success("PDF exported and emailed successfully!")
+
+    if st.sidebar.button("🔐 Admin Panel"):
+        passwd = st.sidebar.text_input("Enter Admin Password", type="password")
+        if passwd == ADMIN_PASSWORD:
+            st.session_state.page = 4
+            st.rerun()
+
+# ========== PAGE 4: ADMIN ==========
+elif st.session_state.page == 4:
+    st.set_page_config(page_title="Admin Panel", layout="centered")
+    st.markdown("<h3>📊 KCET Admin Dashboard</h3>", unsafe_allow_html=True)
+
+    if st.button("⬅ Back to Chat"):
+        st.session_state.page = 3
+        st.rerun()
+
+    conn = sqlite3.connect(DB_FILE)
+    users = pd.read_sql_query("SELECT * FROM users ORDER BY timestamp DESC", conn)
+    chats = pd.read_sql_query("SELECT * FROM chatlog ORDER BY timestamp DESC", conn)
+    conn.close()
+
+    st.subheader("📋 Registered Users")
+    st.dataframe(users)
+
+    st.subheader("💬 Chat Logs")
+    st.dataframe(chats)
+
+    if st.button("⬇ Download All as CSV"):
+        users.to_csv("users.csv", index=False)
+        chats.to_csv("chatlog.csv", index=False)
+        st.success("Files saved as users.csv and chatlog.csv")
