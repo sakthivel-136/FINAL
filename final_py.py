@@ -66,19 +66,19 @@ def speak_text(text):
         st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{audio}' type='audio/mp3'></audio>", unsafe_allow_html=True)
 
 @st.cache_data
-@st.cache_data
 def load_vector_data():
     if os.path.exists(TFIDF_FILE):
         with open(TFIDF_FILE, "rb") as f:
             return pickle.load(f)
     else:
-        df = pd.read_csv(CSV_FILE)  # ✅ FIXED
+        df = pd.read_csv(CSV_FILE)
         df['Question'] = df['Question'].str.lower().str.strip()
         vec = TfidfVectorizer()
         X = vec.fit_transform(df['Question'])
         with open(TFIDF_FILE, "wb") as f:
             pickle.dump((vec, X, df), f)
         return vec, X, df
+
 vectorizer, vectors, df = load_vector_data()
 
 def get_gpt_response(prompt):
@@ -213,6 +213,34 @@ elif st.session_state.page == 2:
                 <b>{speaker}</b>: {msg}
             </div>
         """, unsafe_allow_html=True)
+
+    if st.session_state.enable_export:
+        with st.expander("📤 Export Chat"):
+            export_format = st.radio("Select format", ["TXT", "DOC"])
+            if st.button("Export"):
+                log = st.session_state.original_log
+                if export_format == "DOC":
+                    doc = Document()
+                    doc.add_heading("KCET Chat Export", 0)
+                    style = doc.styles['Normal']
+                    font = style.font
+                    font.name = 'Calibri'
+                    font.size = Pt(11)
+                    for speaker, msg, role in log:
+                        p = doc.add_paragraph()
+                        p.add_run(f"{speaker} ({role}): ").bold = True
+                        p.add_run(msg)
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as f:
+                        doc.save(f.name)
+                        with open(f.name, "rb") as download_file:
+                            st.download_button("📄 Download DOC", download_file, file_name="kcet_chat.docx")
+                else:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode="w", encoding="utf-8") as f:
+                        for speaker, msg, role in log:
+                            f.write(f"{speaker} ({role}): {msg}\n")
+                        f.close()
+                        with open(f.name, "rb") as download_file:
+                            st.download_button("📄 Download TXT", download_file, file_name="kcet_chat.txt")
 
     col1, col2 = st.columns(2)
     with col1:
