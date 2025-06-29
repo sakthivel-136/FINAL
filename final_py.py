@@ -323,7 +323,7 @@ Thanks!"""
 
 # ========== PAGE 4 ==========
 if st.session_state.page == 4:
-
+    transition_effect()
 
     col1, col2 = st.columns([1, 8])
     with col1:
@@ -359,6 +359,12 @@ if st.session_state.page == 4:
         send_email(SENDER_EMAIL, "KCET Logs", "Attached are all chat logs.", csv_path)
         st.success("Logs emailed to admin")
 
+    if st.button("⬇️ Download Logs as Excel", use_container_width=True):
+        xlsx_path = export_excel_logs()
+        with open(xlsx_path, "rb") as f:
+            st.download_button("Download Excel", f, file_name="kcet_logs.xlsx")
+
     if st.button("🏠 Back to Main Page", use_container_width=True):
         st.session_state.page = 1
         st.rerun()
+
