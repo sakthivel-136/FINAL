@@ -230,10 +230,11 @@ if st.session_state.page == 3:
         align = 'right' if role == "User" else 'left'
         bubble_color = user_color if role == "User" else "#f0f0f0"
         st.markdown(f"""
-            <div style='background-color:{bubble_color}; padding:10px; margin:10px; border-radius:10px; text-align:{align}; transition: 0.5s all;'>
-                <b class='user-msg'>{speaker}</b>: {msg}
-            </div>
-        """, unsafe_allow_html=True)
+    <div style='background-color:{bubble_color}; padding:10px; margin:10px; border-radius:10px; text-align:{align}; transition: 0.5s all; color: black;'>
+        <b class='user-msg'>{speaker}</b>: {msg}
+    </div>
+""", unsafe_allow_html=True)
+
 
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 1, 1])
