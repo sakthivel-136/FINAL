@@ -24,7 +24,9 @@ def init_state():
         "page": 1, "username": "You", "language": "en", "original_log": [],
         "export_email": "", "admin_pass": "", "admin_triggered": False,
         "admin_authenticated": False, "persona": "Friendly Advisor 👩‍🏫",
-        "login_time": None, "logout_time": None
+        "login_time": None, "logout_time": None,
+        "session_start": time.time(),   # Track session start time
+        "feedback": []                  # Initialize empty feedback list
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -141,6 +143,8 @@ if st.session_state.page == 1:
                 st.session_state.username = name
                 st.session_state.user_email = email
                 st.session_state.user_phone = phone
+                st.session_state.session_start = time.time()  # reset session timer on login
+                st.session_state.feedback = []  # reset feedback list on login
                 store_user_info(name, email, phone)
                 send_email(email, "KCET Chatbot Confirmation", f"Hi {name}, This is a CONFIRMATION mail regarding your Login in KCET Chatbot!!\n\nDetails:\nName: {name}\nEmail: {email}\nPhone: {phone}\n\nThanks for Connecting with us!")
                 st.session_state.page = 3
@@ -199,8 +203,18 @@ if st.session_state.page == 3:
         st.session_state.original_log.append(("KCET Bot", answer, "Assistant"))
         save_to_db(st.session_state.username, "User", user_input)
         save_to_db("KCET Bot", "Assistant", answer)
+
+        # Feedback radio for user (per question)
+        feedback_option = st.radio(
+            "Was this answer helpful?",
+            ["👍 Yes", "👎 No"],
+            key=f"feedback_{len(st.session_state.original_log)}"
+        )
+        st.session_state.feedback.append((user_input, answer, feedback_option))
+
         st.rerun()
 
+    # Display chat bubbles
     for speaker, msg, role in st.session_state.original_log:
         align = 'right' if role == "User" else 'left'
         bubble_color = user_color if role == "User" else "#f0f0f0"
@@ -242,6 +256,7 @@ if st.session_state.page == 3:
     with col3:
         if st.button("🗑️ Clear Chat", use_container_width=True):
             st.session_state.original_log = []
+            st.session_state.feedback = []
             st.rerun()
 
     with col4:
@@ -250,6 +265,9 @@ if st.session_state.page == 3:
                 name = st.session_state.username
                 email = st.session_state.user_email
                 phone = st.session_state.get("user_phone", "Not provided")
+                duration = time.time() - st.session_state.get("session_start", time.time())
+                mins = round(duration / 60, 2)
+
                 logout_message = f"""Hi {name},
 
 You have successfully logged out from KCET Chatbot - Kamaraj College of Engineering and Technology.
@@ -258,13 +276,25 @@ Details:
 Name: {name}
 Email: {email}
 Phone: {phone}
+Session Duration: {mins} minutes
 
-Thanks for using our chatbot!"""
+Thanks for using our chatbot!
+"""
+
+                if st.session_state.feedback:
+                    logout_message += "\n\nYour Feedback Summary:\n"
+                    for i, (q, a, fb) in enumerate(st.session_state.feedback, 1):
+                        logout_message += f"{i}. Q: {q}\n   A: {a}\n   Feedback: {fb}\n\n"
+
                 try:
                     send_email(email, "KCET Chatbot - Logout Confirmation", logout_message)
                     st.success("Logout mail sent.")
                 except Exception as e:
                     st.warning(f"Email send failed: {e}")
+
+            # Clear session data for next login
+            st.session_state.original_log = []
+            st.session_state.feedback = []
             st.session_state.page = 1
             st.rerun()
 
@@ -305,6 +335,14 @@ if st.session_state.page == 4:
     filtered_logs['date'] = pd.to_datetime(filtered_logs['timestamp']).dt.date
     date_chart = filtered_logs.groupby(['date', 'role']).size().unstack(fill_value=0)
     st.bar_chart(date_chart)
+
+    st.subheader("📊 Most Asked Questions")
+    # Extract user questions from chatlog and show top 5
+    user_questions = logs_df[logs_df['role']=='User']['message'].str.lower().str.strip()
+    if not user_questions.empty:
+        top_questions = user_questions.value_counts().head(5)
+        st.write(top_questions)
+        st.bar_chart(top_questions)
 
     st.subheader("📦 Export Options")
     col1, col2, col3 = st.columns(3)
