@@ -150,7 +150,9 @@ if st.session_state.page == 1:
 
 
 # ========== PAGE 2 ==========
-# ========== PAGE 2 ==========
+with st.spinner("🔄 Loading..."):
+    time.sleep(1.5)
+
 if st.session_state.page == 2:
     transition_effect()
     
@@ -178,6 +180,9 @@ if st.session_state.page == 2:
 
 
 # ========== PAGE 3 ==========
+with st.spinner("🔄 Loading..."):
+    time.sleep(1.5)
+
 if st.session_state.page == 3:
     transition_effect()
     col1, col2 = st.columns([1, 8])
@@ -299,6 +304,9 @@ Thanks!"""
             st.rerun()
 
 # ========== PAGE 4 ==========
+with st.spinner("🔄 Loading..."):
+    time.sleep(1.5)
+
 if st.session_state.page == 4:
     transition_effect()
     col1, col2 = st.columns([1, 8])
