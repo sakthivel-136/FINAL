@@ -221,28 +221,28 @@ if st.session_state.page == 3:
             with open(pdf_path, "rb") as f:
                 st.download_button("Download PDF", f, file_name="kcet_chat.pdf")
 
-    with col2:
-        if st.button("📧 Email PDF to Me", use_container_width=True):
-            pdf_path = export_pdf_from_log()
-            user_email = st.session_state.get("user_email", None)
-            if user_email:
+    # 📧 Email PDF
+with col2:
+    email_override = st.text_input("✏️ Change Email (optional)", value=st.session_state.get("user_email", ""))
+    if st.button("📧 Email PDF to Me", use_container_width=True):
+        user_email = email_override.strip() or st.session_state.get("user_email", None)
+
+        if user_email:
+            if st.confirm("Are you sure you want to email the PDF to this address?"):
+                pdf_path = export_pdf_from_log()
                 try:
                     send_email(
                         to_email=user_email,
                         subject="KCET Chatbot Chat Log PDF",
-                        body=f"""Hi {st.session_state.username},
-
-Please find attached the PDF export of your KCET chatbot session with Kamaraj College of Engineering and Technology.
-
-Best regards,
-KCET Chatbot Team""",
+                        body=f"Hi {st.session_state.username},\n\nPlease find attached the PDF export of your KCET chatbot session.",
                         attachment=pdf_path
                     )
                     st.success(f"PDF emailed to {user_email}!")
                 except Exception as e:
                     st.error(f"Failed to send email: {e}")
-            else:
-                st.warning("Please enter your email on the previous page (Assistant Pre-check).")
+        else:
+            st.warning("Email not provided.")
+
 
     with col3:
         if st.button("🗑️ Clear Chat", use_container_width=True):
