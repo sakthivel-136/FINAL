@@ -106,7 +106,7 @@ init_db()
 
 # ========== PAGE 1 ==========
 if st.session_state.page == 1:
-    transition_effect()
+    
     col1, col2 = st.columns([1, 8])
     with col1:
         st.image("kcet_logo.png", width=60)
@@ -154,8 +154,7 @@ if st.session_state.page == 1:
 
 # ========== PAGE 2 ==========
 if st.session_state.page == 2:
-    show_custom_loader()
-    transition_effect()
+    
 
     col1, col2 = st.columns([1, 8])
     with col1:
@@ -203,10 +202,7 @@ Thanks!"""
 
 # ========== PAGE 3 ==========
 if st.session_state.page == 3:
-    show_custom_loader()
 
-if st.session_state.page == 3:
-    transition_effect()
     col1, col2 = st.columns([1, 8])
     with col1:
         st.image("kcet_logo.png", width=60)
@@ -327,8 +323,7 @@ Thanks!"""
 
 # ========== PAGE 4 ==========
 if st.session_state.page == 4:
-    show_custom_loader()
-    transition_effect()
+
 
     col1, col2 = st.columns([1, 8])
     with col1:
