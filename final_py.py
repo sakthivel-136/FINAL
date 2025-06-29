@@ -1,5 +1,5 @@
 import streamlit as st
-import os, base64, re, time, pickle, tempfile, smtplib, sqlite3
+import os, base64, re, time, pickle, tempfile, smtplib, sqlite3, socket, datetime
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -8,7 +8,6 @@ from deep_translator import GoogleTranslator
 from fpdf import FPDF
 from email.message import EmailMessage
 
-# ===== Streamlit Page Config =====
 st.set_page_config(page_title="KCET Chatbot", page_icon="🤖", layout="wide")
 
 # ========== CONFIG ==========
@@ -24,7 +23,8 @@ def init_state():
     defaults = {
         "page": 1, "username": "You", "language": "en", "original_log": [],
         "export_email": "", "admin_pass": "", "admin_triggered": False,
-        "admin_authenticated": False
+        "admin_authenticated": False, "persona": "Friendly Advisor 👩‍🏫",
+        "login_time": None, "logout_time": None
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -39,7 +39,7 @@ def init_db():
         )""")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            name TEXT, email TEXT, phone TEXT,
+            name TEXT, email TEXT, phone TEXT, ip TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )""")
     conn.commit()
@@ -49,8 +49,9 @@ def remove_emojis(text):
     return re.sub(r'[^\x00-\x7F]+', '', text)
 
 def store_user_info(name, email, phone):
+    ip_address = socket.gethostbyname(socket.gethostname())
     conn = sqlite3.connect(DB_FILE)
-    conn.execute("INSERT INTO users (name, email, phone) VALUES (?, ?, ?)", (name, email, phone))
+    conn.execute("INSERT INTO users (name, email, phone, ip) VALUES (?, ?, ?, ?)", (name, email, phone, ip_address))
     conn.commit()
     conn.close()
     send_email(email, "Welcome to KCET Chatbot", f"Hi {name},\nThanks for logging in.")
@@ -87,16 +88,20 @@ def export_pdf_from_log():
     pdf.output(path)
     return path
 
-def export_excel_logs():
+def export_user_chat_pdf(username):
     conn = sqlite3.connect(DB_FILE)
-    users = pd.read_sql_query("SELECT * FROM users", conn)
-    logs = pd.read_sql_query("SELECT * FROM chatlog", conn)
+    logs_df = pd.read_sql_query("SELECT * FROM chatlog WHERE username = ?", conn, params=(username,))
     conn.close()
-    xlsx_path = os.path.join(tempfile.gettempdir(), "kcet_logs.xlsx")
-    with pd.ExcelWriter(xlsx_path) as writer:
-        users.to_excel(writer, sheet_name="Users", index=False)
-        logs.to_excel(writer, sheet_name="ChatLogs", index=False)
-    return xlsx_path
+    if logs_df.empty:
+        return None
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    for _, row in logs_df.iterrows():
+        pdf.multi_cell(0, 10, txt=f"{row['username']} ({row['role']}): {row['message']}")
+    path = os.path.join(tempfile.gettempdir(), f"{username}_chat.pdf")
+    pdf.output(path)
+    return path
 
 def transition_effect():
     st.markdown("""
@@ -107,7 +112,7 @@ def transition_effect():
         </style>
     """, unsafe_allow_html=True)
 
-# ========== INIT RUN ==========
+# Call init
 init_state()
 init_db()
 
