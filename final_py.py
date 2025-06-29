@@ -1,4 +1,4 @@
-# KCET Chatbot Full App - Setup & Loader Fix (Updated)
+# KCET Chatbot Full App - Setup (Loader Removed)
 
 import streamlit as st
 import os, base64, re, time, pickle, tempfile, smtplib, sqlite3
@@ -95,48 +95,6 @@ def transition_effect():
         </style>
     """, unsafe_allow_html=True)
 
-def show_custom_loader():
-    st.markdown("""
-        <style>
-        .loader-wrapper {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: rgba(255,255,255,0.95);
-            z-index: 9999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .loader {
-            border: 12px solid #f3f3f3;
-            border-top: 12px solid #3498db;
-            border-radius: 50%;
-            width: 100px;
-            height: 100px;
-            animation: spin 1.2s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        </style>
-        <div class="loader-wrapper" id="loader">
-            <div class="loader"></div>
-        </div>
-        <script>
-        setTimeout(function() {
-            var loader = document.getElementById("loader");
-            if (loader) {
-                loader.style.display = "none";
-            }
-        }, 1500);
-        </script>
-    """, unsafe_allow_html=True)
-    time.sleep(1.5)  # Ensure Python-side waits too
-
 def play_welcome_audio():
     pass
 
@@ -144,8 +102,7 @@ init_state()
 init_db()
 
 # Continue with your page logic below as it is (Pages 1, 2, 3, 4)
-# Note: Only the loader function has been fixed to hide properly after delay.
-
+# Note: Loader function has been removed completely as per request.
 
 # ========== PAGE 1 ==========
 if st.session_state.page == 1:
