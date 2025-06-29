@@ -145,18 +145,10 @@ if st.session_state.page == 1:
                 st.warning("Please fill all fields to continue.")
 
     with col4:
-        if st.button("🔐 Admin Panel", use_container_width=True):
-            st.session_state.admin_triggered = True
+            if st.button("🔐 Admin Panel", use_container_width=True):
+        st.session_state.page = 5
+        st.rerun()
 
-    if st.session_state.admin_triggered:
-        st.session_state.admin_pass = st.text_input("Enter Admin Password", type="password")
-        if st.button("✅ Submit", use_container_width=True):
-            if st.session_state.admin_pass == ADMIN_PASSWORD:
-                st.session_state.admin_authenticated = True
-                st.session_state.page = 4
-                st.rerun()
-            else:
-                st.error("Incorrect password")
 
 
 # ========== PAGE 2 ==========
@@ -387,3 +379,30 @@ if st.session_state.page == 4:
         if st.button("🏠 Back to Main Page", use_container_width=True):
             st.session_state.page = 1
             st.rerun()
+# ========== PAGE 5 - Admin Password Entry ==========
+if st.session_state.page == 5:
+    transition_effect()
+    col1, col2 = st.columns([1, 8])
+    with col1:
+        st.image("kcet_logo.png", width=60)
+    with col2:
+        st.title("🔐 Admin Login")
+
+    st.markdown("Please enter the admin password to access the dashboard.")
+    admin_password_input = st.text_input("Enter Admin Password", type="password")
+    
+    col_a, col_b = st.columns(2)
+    with col_a:
+        if st.button("✅ Submit", use_container_width=True):
+            if admin_password_input == ADMIN_PASSWORD:
+                st.session_state.admin_authenticated = True
+                st.session_state.page = 4  # Go to dashboard
+                st.rerun()
+            else:
+                st.error("Incorrect password. Try again.")
+
+    with col_b:
+        if st.button("⬅️ Back", use_container_width=True):
+            st.session_state.page = 1
+            st.rerun()
+
