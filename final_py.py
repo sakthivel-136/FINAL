@@ -139,7 +139,7 @@ if st.session_state.page == 1:
                 st.session_state.user_phone = phone
                 store_user_info(name, email, phone)
                 send_email(email, "KCET Chatbot Confirmation", f"Hi {name}, This is a CONFIRMATION mail regarding your Login in KCET Chatbot!!\n\nDetails:\nName: {name}\nEmail: {email}\nPhone: {phone}\n\nThanks for Connecting with us!")
-                st.session_state.page = 2
+                st.session_state.page = 3
                 st.rerun()
             else:
                 st.warning("Please fill all fields to continue.")
@@ -151,53 +151,7 @@ if st.session_state.page == 1:
 
 
 
-# ========== PAGE 2 ==========
-if st.session_state.page == 2:
-    
 
-    col1, col2 = st.columns([1, 8])
-    with col1:
-        st.image("kcet_logo.png", width=60)
-    with col2:
-        st.title("Assistant Pre-check")
-
-    play_welcome_audio()
-
-    st.markdown("""
-        <marquee behavior="scroll" direction="left" style="color:red; font-size:16px;">
-        ⚠️ Make sure your email is correct to receive the exported chat logs.
-        </marquee>
-    """, unsafe_allow_html=True)
-
-    email_to = st.text_input("📧 Enter your email to receive export")
-    if email_to:
-        st.session_state.export_email = email_to
-
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        if st.button("➡️ Start Chat", use_container_width=True):
-            st.session_state.page = 3
-            st.rerun()
-    with col2:
-        if st.button("⬅️ Back", use_container_width=True):
-            if "user_email" in st.session_state and "username" in st.session_state:
-                name = st.session_state.username
-                email = st.session_state.user_email
-                phone = st.session_state.get("user_phone", "Not provided")
-
-                logout_message = f"""Hi {name},
-
-You have logged out from KCET Chatbot (via Back button from Page 2).
-
-Details:
-Name: {name}
-Email: {email}
-Phone: {phone}
-
-Thanks!"""
-                send_email(email, "KCET Chatbot - Logout Confirmation", logout_message)
-            st.session_state.page = 1
-            st.rerun()
 
 # ========== PAGE 3 ==========
 # ========== PAGE 3 ==========
@@ -270,7 +224,7 @@ if st.session_state.page == 3:
     with col2:
         if st.button("📧 Email PDF to Me", use_container_width=True):
             pdf_path = export_pdf_from_log()
-            user_email = st.session_state.get("export_email", None)
+            user_email = st.session_state.get("user_email", None)
             if user_email:
                 try:
                     send_email(
