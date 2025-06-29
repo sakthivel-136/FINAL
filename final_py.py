@@ -1,4 +1,4 @@
-# KCET Chatbot Full App: Pages 1, 2, 3, 4 with Analytics and Audio
+# KCET Chatbot Full App - Setup & Page 1, 2, 3, 4
 import streamlit as st
 import os, base64, re, time, pickle, tempfile, smtplib, sqlite3
 import pandas as pd
@@ -8,25 +8,21 @@ from gtts import gTTS
 from deep_translator import GoogleTranslator
 from fpdf import FPDF
 from email.message import EmailMessage
-import matplotlib.pyplot as plt
-from PIL import Image
 
-# ========== CONFIGURATION ==========
+# ========== CONFIG ==========
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
 SENDER_PASSWORD = "vwvcwsfffbrvumzh"
 ADMIN_PASSWORD = "qwerty12345"
 DB_FILE = "kcet_chatlog.db"
 CSV_FILE = "kcet.csv"
-TFIDF_FILE = "vectorized.pkl"
 THRESHOLD = 0.6
 
-# ========== INITIALIZATION ==========
+# ========== INIT ==========
 def init_state():
     defaults = {
-        "page": 1, "img_idx": 0, "username": "You", "language": "en",
-        "original_log": [], "last_input": "", "user_color": "#d0e8f2",
-        "bot_color": "#d1d1e9", "export_email": "", "admin_pass": "",
-        "admin_triggered": False, "admin_authenticated": False
+        "page": 1, "username": "You", "language": "en", "original_log": [],
+        "export_email": "", "admin_pass": "", "admin_triggered": False,
+        "admin_authenticated": False
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -47,10 +43,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-init_state()
-init_db()
-
-# ========== UTILITY FUNCTIONS ==========
 def remove_emojis(text):
     return re.sub(r'[^\x00-\x7F]+', '', text)
 
@@ -84,6 +76,7 @@ def save_to_db(user, role, msg):
     conn.close()
 
 def export_pdf_from_log():
+    from fpdf import FPDF
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
@@ -93,37 +86,56 @@ def export_pdf_from_log():
     pdf.output(path)
     return path
 
-def play_welcome_audio():
-    if os.path.exists("kcet_music.mp3"):
-        audio_bytes = open("kcet_music.mp3", "rb").read()
-        b64 = base64.b64encode(audio_bytes).decode()
-        st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
+def transition_effect():
+    st.markdown("""
+        <style>
+        div.stButton > button {
+            transition: all 0.3s ease;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+init_state()
+init_db()
 
 # ========== PAGE 1 ==========
 if st.session_state.page == 1:
-    st.set_page_config(page_title="KCET Welcome", layout="centered")
-    st.title("🎓 Welcome to KCET Chatbot")
+    transition_effect()
+    col1, col2 = st.columns([1, 8])
+    with col1:
+        st.image("kcet_logo.png", width=60)
+    with col2:
+        st.title("🎓 Welcome to KCET Chatbot")
 
-    st.image("kcet_logo.png", width=120)
-    name = st.text_input("Your Name")
-    email = st.text_input("Your Email")
-    phone = st.text_input("Your Phone Number")
+    st.markdown("""
+        <style>
+            input, button { border-radius: 10px !important; font-size: 16px !important; }
+        </style>
+    """, unsafe_allow_html=True)
 
-    if st.button("🚀 Enter Chatbot", use_container_width=True):
-        if name and email:
-            st.session_state.username = name
-            store_user_info(name, email, phone)
-            st.session_state.page = 2
-            st.rerun()
-        else:
-            st.warning("Please fill all required details")
+    name = st.text_input("🧑 Your Name")
+    email = st.text_input("📧 Your Email")
+    phone = st.text_input("📱 Phone Number")
 
-    if st.button("🔐 Admin Panel", use_container_width=True):
-        st.session_state.admin_triggered = True
+    col3, col4 = st.columns([1, 1])
+    with col3:
+        if st.button("🚀 Enter Chatbot", use_container_width=True):
+            if name and email:
+                st.session_state.username = name
+                store_user_info(name, email, phone)
+                st.session_state.page = 2
+                send_email(email, "KCET Chatbot Confirmation", f"Hi {name}, your login to KCET Chatbot is confirmed!")
+                st.rerun()
+            else:
+                st.warning("Please fill all fields to continue.")
+
+    with col4:
+        if st.button("🔐 Admin Panel", use_container_width=True):
+            st.session_state.admin_triggered = True
 
     if st.session_state.admin_triggered:
         st.session_state.admin_pass = st.text_input("Enter Admin Password", type="password")
-        if st.button("Submit"):
+        if st.button("✅ Submit", use_container_width=True):
             if st.session_state.admin_pass == ADMIN_PASSWORD:
                 st.session_state.admin_authenticated = True
                 st.session_state.page = 4
@@ -131,10 +143,23 @@ if st.session_state.page == 1:
             else:
                 st.error("Incorrect password")
 
+
 # ========== PAGE 2 ==========
 if st.session_state.page == 2:
-    st.title("🤖 KCET Assistant")
+    transition_effect()
+    col1, col2 = st.columns([1, 8])
+    with col1:
+        st.image("kcet_logo.png", width=60)
+    with col2:
+        st.title("Assistant Pre-check")
+
     play_welcome_audio()
+
+    st.markdown("""
+        <marquee behavior="scroll" direction="left" style="color:red; font-size:16px;">
+        ⚠️ Make sure your email is correct to receive the exported chat logs.
+        </marquee>
+    """, unsafe_allow_html=True)
 
     email_to = st.text_input("📧 Enter your email to receive export")
     if email_to:
@@ -146,104 +171,111 @@ if st.session_state.page == 2:
 
 # ========== PAGE 3 ==========
 if st.session_state.page == 3:
-    st.title("💬 Chat with KCET Bot")
+    transition_effect()
+    col1, col2 = st.columns([1, 8])
+    with col1:
+        st.image("kcet_logo.png", width=60)
+    with col2:
+        st.title("Chat with KCET Bot")
 
     with st.sidebar:
         theme_label = st.radio("🎨 Select Chat Theme", ["Modern Blue", "Mint Green", "Elegant Gold"])
+        lang_choice = st.radio("🌐 Select Language", ["English", "Tamil"])
+        st.session_state.language = "ta" if lang_choice == "Tamil" else "en"
 
     themes = {
         "Modern Blue": ("#e1ecf4", "#000000"),
         "Mint Green": ("#d2f4e3", "#000000"),
         "Elegant Gold": ("#fff4cc", "#000000")
     }
+
     user_color, text_color = themes[theme_label]
-    st.session_state.user_color = user_color
-    st.session_state.bot_color = user_color
-    text_style = f"color:{text_color};"
 
-    st.caption(f"Theme: {theme_label}")
+    st.markdown("<style>.user-msg { font-weight: bold; color: " + text_color + "; }</style>", unsafe_allow_html=True)
 
-    col1, col2 = st.columns([8, 1])
-    with col1:
-        user_input = st.text_input("Type your message", key="user_input", on_change=lambda: st.session_state.update({'submit_trigger': True}))
-    with col2:
-        if st.button("📤") or st.session_state.get("submit_trigger"):
-            st.session_state.submit_trigger = False
-            if user_input:
-                vec_data = pd.read_csv(CSV_FILE)
-                questions = vec_data['Question'].str.lower().str.strip()
-                answers = vec_data['Answer']
-                vectorizer = TfidfVectorizer()
-                vectors = vectorizer.fit_transform(questions)
-                input_vec = vectorizer.transform([user_input.lower()])
-                similarity = cosine_similarity(input_vec, vectors)
-                idx = similarity.argmax()
-                max_sim = similarity.max()
-                answer = answers[idx] if max_sim >= THRESHOLD else "Sorry, I couldn't understand that."
+    with st.form("chat_form", clear_on_submit=True):
+        user_input = st.text_input("💬 Type your message")
+        send = st.form_submit_button("Send")
 
-                if st.session_state.language == "ta":
-                    answer = GoogleTranslator(source='en', target='ta').translate(answer)
+    if send and user_input:
+        vec_data = pd.read_csv(CSV_FILE)
+        questions = vec_data['Question'].str.lower().str.strip()
+        answers = vec_data['Answer']
+        vectorizer = TfidfVectorizer()
+        vectors = vectorizer.fit_transform(questions)
+        input_vec = vectorizer.transform([user_input.lower()])
+        similarity = cosine_similarity(input_vec, vectors)
+        idx = similarity.argmax()
+        max_sim = similarity.max()
+        answer = answers[idx] if max_sim >= THRESHOLD else "Sorry, I couldn't understand that."
 
-                st.session_state.original_log.append((st.session_state.username, user_input, "User"))
-                st.session_state.original_log.append(("KCET Bot", answer, "Assistant"))
-                save_to_db(st.session_state.username, "User", user_input)
-                save_to_db("KCET Bot", "Assistant", answer)
-                st.rerun()
+        if st.session_state.language == "ta":
+            answer = GoogleTranslator(source='en', target='ta').translate(answer)
+
+        st.session_state.original_log.append((st.session_state.username, user_input, "User"))
+        st.session_state.original_log.append(("KCET Bot", answer, "Assistant"))
+        save_to_db(st.session_state.username, "User", user_input)
+        save_to_db("KCET Bot", "Assistant", answer)
+        st.rerun()
 
     for speaker, msg, role in st.session_state.original_log:
         align = 'right' if role == "User" else 'left'
-        bg_color = st.session_state.user_color if role == "User" else st.session_state.bot_color
+        bubble_color = user_color if role == "User" else "#f0f0f0"
         st.markdown(f"""
-            <div style='background-color:{bg_color}; padding:10px; margin:10px; border-radius:10px; text-align:{align}; {text_style}'>
-                <b>{speaker}</b>: {msg}
+            <div style='background-color:{bubble_color}; padding:10px; margin:10px; border-radius:10px; text-align:{align}; transition: 0.5s all;'>
+                <b class='user-msg'>{speaker}</b>: {msg}
             </div>
         """, unsafe_allow_html=True)
 
     st.markdown("---")
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3 = st.columns([1, 1, 1])
     with col1:
-        if st.button("🗑️ Clear Chat"):
-            st.session_state.original_log.clear()
-            st.rerun()
-    with col2:
-        if st.button("📤 Export Chat to PDF", use_container_width=True):
+        if st.button("📤 Export to PDF", use_container_width=True):
             pdf_path = export_pdf_from_log()
             st.success("PDF exported!")
             with open(pdf_path, "rb") as f:
                 st.download_button("Download PDF", f, file_name="kcet_chat.pdf")
+    with col2:
+        if st.button("🗑️ Clear Chat", use_container_width=True):
+            st.session_state.original_log = []
+            st.rerun()
     with col3:
-        if st.button("📧 Send Email", use_container_width=True):
-            if st.session_state.export_email:
-                pdf_path = export_pdf_from_log()
-                send_email(st.session_state.export_email, "KCET Chat Log", "Attached is your chat.", pdf_path)
-                st.success("Email sent!")
-            else:
-                st.warning("Enter your email above")
-
-    if st.button("🚪 Logout", use_container_width=True):
-        st.session_state.page = 1
-        st.rerun()
+        if st.button("🔒 Logout", use_container_width=True):
+            st.session_state.page = 1
+            st.rerun()
 
 # ========== PAGE 4 ==========
 if st.session_state.page == 4:
-    st.title("🛠️ Admin Dashboard")
+    transition_effect()
+    col1, col2 = st.columns([1, 8])
+    with col1:
+        st.image("kcet_logo.png", width=60)
+    with col2:
+        st.title("🛠️ Admin Dashboard")
 
     conn = sqlite3.connect(DB_FILE)
     users = pd.read_sql_query("SELECT * FROM users", conn)
     logs = pd.read_sql_query("SELECT * FROM chatlog", conn)
     conn.close()
 
-    st.subheader("Registered Users")
+    st.subheader("👥 Registered Users")
     st.dataframe(users)
 
-    st.subheader("Chat Logs")
+    st.subheader("📋 Chat Logs")
     st.dataframe(logs)
 
-    st.subheader("Chat Analytics")
-    count_by_user = logs['username'].value_counts()
-    st.bar_chart(count_by_user)
+    st.subheader("📈 Chat Analytics")
+    user_msgs = logs[logs['role'] == "User"]
+    bot_msgs = logs[logs['role'] == "Assistant"]
+    col_u, col_b = st.columns(2)
+    with col_u:
+        st.markdown("**User Messages Count**")
+        st.bar_chart(user_msgs['username'].value_counts())
+    with col_b:
+        st.markdown("**Assistant Messages Count**")
+        st.bar_chart(bot_msgs['username'].value_counts())
 
-    if st.button("📧 Email All Logs", use_container_width=True):
+    if st.button("📧 Email Logs", use_container_width=True):
         csv_path = os.path.join(tempfile.gettempdir(), "kcet_logs.csv")
         logs.to_csv(csv_path, index=False)
         send_email(SENDER_EMAIL, "KCET Logs", "Attached are all chat logs.", csv_path)
