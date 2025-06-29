@@ -150,13 +150,13 @@ if st.session_state.page == 1:
 
 
 # ========== PAGE 2 ==========
-with st.spinner("🔄 Loading..."):
-    time.sleep(1.5)
-
 if st.session_state.page == 2:
+    with st.spinner("🔄 Loading Assistant Pre-check..."):
+        time.sleep(1.5)
+
     transition_effect()
     
-    col1, col2 = st.columns([1, 8])  # Make sure this line is here
+    col1, col2 = st.columns([1, 8])
     with col1:
         st.image("kcet_logo.png", width=60)
     with col2:
@@ -174,9 +174,39 @@ if st.session_state.page == 2:
     if email_to:
         st.session_state.export_email = email_to
 
-    if st.button("➡️ Start Chat", use_container_width=True):
-        st.session_state.page = 3
-        st.rerun()
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("➡️ Start Chat", use_container_width=True):
+            st.session_state.page = 3
+            st.rerun()
+
+    with col2:
+        if st.button("⬅️ Back", use_container_width=True):
+            # Send logout mail before going back to Page 1
+            if "user_email" in st.session_state and "username" in st.session_state:
+                name = st.session_state.username
+                email = st.session_state.user_email
+                phone = st.session_state.get("user_phone", "Not provided")
+
+                logout_message = f"""Hi {name},
+
+You have logged out from KCET Chatbot (via Back button from Page 2).
+
+Details:
+Name: {name}
+Email: {email}
+Phone: {phone}
+
+Thanks!"""
+
+                try:
+                    send_email(email, "KCET Chatbot - Logout Confirmation", logout_message)
+                    st.success("Logout mail sent.")
+                except Exception as e:
+                    st.warning(f"Email send failed: {e}")
+
+            st.session_state.page = 1
+            st.rerun()
 
 
 # ========== PAGE 3 ==========
