@@ -1,5 +1,5 @@
 import streamlit as st
-import os, base64, re, time, pickle, tempfile, smtplib, sqlite3, socket, datetime, traceback
+import os, base64, re, time, tempfile, smtplib, sqlite3, socket
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -32,54 +32,6 @@ def get_ip():
 def remove_emojis(text):
     return re.sub(r'[^\x00-\x7F]+', '', text)
 
-# ========== INIT ==========
-def init_state():
-    defaults = {
-        "page": 1, "username": "You", "language": "en", "original_log": [],
-        "export_email": "", "admin_pass": "", "admin_triggered": False,
-        "admin_authenticated": False, "persona": "Friendly Advisor 👩‍🏫",
-        "login_time": None, "logout_time": None,
-        "session_start": time.time(),
-        "feedback": []
-    }
-    for k, v in defaults.items():
-        if k not in st.session_state:
-            st.session_state[k] = v
-
-def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS chatlog (
-            username TEXT, role TEXT, message TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )""")
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            name TEXT, email TEXT, phone TEXT, ip TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )""")
-    conn.commit()
-    conn.close()
-
-def store_user_info(name, email, phone):
-    ip_address = get_ip()
-    try:
-        conn = sqlite3.connect(DB_FILE)
-        conn.execute("INSERT INTO users (name, email, phone, ip) VALUES (?, ?, ?, ?)", (name, email, phone, ip_address))
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        st.error(f"Failed to store user info in DB: {e}")
-        st.error(traceback.format_exc())
-        return False
-
-    try:
-        send_email(email, "Welcome to KCET Chatbot", f"Hi {name},\nThanks for logging in.")
-    except Exception as e:
-        st.warning(f"Failed to send welcome email: {e}")
-        st.warning(traceback.format_exc())
-    return True
-
 def send_email(to_email, subject, body, attachment=None):
     msg = EmailMessage()
     msg["Subject"] = subject
@@ -97,10 +49,13 @@ def send_email(to_email, subject, body, attachment=None):
         st.warning(f"Email error: {e}")
 
 def save_to_db(user, role, msg):
-    conn = sqlite3.connect(DB_FILE)
-    conn.execute("INSERT INTO chatlog (username, role, message) VALUES (?, ?, ?)", (user, role, msg))
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        conn.execute("INSERT INTO chatlog (username, role, message) VALUES (?, ?, ?)", (user, role, msg))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        st.warning(f"Failed to save chat message: {e}")
 
 def export_pdf_from_log():
     pdf = FPDF()
@@ -112,21 +67,66 @@ def export_pdf_from_log():
     pdf.output(path)
     return path
 
-def export_user_chat_pdf(username):
+# ========== DB INIT WITH SCHEMA CHECK & UPDATE ==========
+def init_db():
     conn = sqlite3.connect(DB_FILE)
-    logs_df = pd.read_sql_query("SELECT * FROM chatlog WHERE username = ?", conn, params=(username,))
-    conn.close()
-    if logs_df.empty:
-        return None
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    for _, row in logs_df.iterrows():
-        pdf.multi_cell(0, 10, txt=f"{row['username']} ({row['role']}): {row['message']}")
-    path = os.path.join(tempfile.gettempdir(), f"{username}_chat.pdf")
-    pdf.output(path)
-    return path
+    c = conn.cursor()
+    # Create chatlog table if not exists
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS chatlog (
+            username TEXT, role TEXT, message TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )""")
+    # Create users table if not exists
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            name TEXT, email TEXT, phone TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )""")
 
+    # Check if 'ip' column exists in users table
+    c.execute("PRAGMA table_info(users);")
+    columns = [col[1] for col in c.fetchall()]
+    if "ip" not in columns:
+        # Add ip column
+        c.execute("ALTER TABLE users ADD COLUMN ip TEXT;")
+        conn.commit()
+
+    conn.commit()
+    conn.close()
+
+def store_user_info(name, email, phone):
+    ip_address = get_ip()
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        conn.execute("INSERT INTO users (name, email, phone, ip) VALUES (?, ?, ?, ?)", (name, email, phone, ip_address))
+        conn.commit()
+        conn.close()
+        # Send welcome email but do not block flow on failure
+        try:
+            send_email(email, "Welcome to KCET Chatbot", f"Hi {name},\nThanks for logging in.")
+        except Exception as e:
+            st.warning(f"Welcome email failed: {e}")
+        return True
+    except Exception as e:
+        st.error(f"Failed to store user info in DB: {e}")
+        return False
+
+# ========== STATE INIT ==========
+def init_state():
+    defaults = {
+        "page": 1, "username": "You", "language": "en", "original_log": [],
+        "export_email": "", "admin_pass": "", "admin_triggered": False,
+        "admin_authenticated": False, "persona": "Friendly Advisor 👩‍🏫",
+        "login_time": None, "logout_time": None,
+        "session_start": time.time(),
+        "feedback": []
+    }
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
+
+# ========== UI TRANSITION EFFECT ==========
 def transition_effect():
     st.markdown("""
         <style>
@@ -136,11 +136,12 @@ def transition_effect():
         </style>
     """, unsafe_allow_html=True)
 
-# Initialize
+# ========== MAIN ==========
+
 init_state()
 init_db()
 
-# ========== PAGE 1 ==========
+# --- PAGE 1: Login ---
 if st.session_state.page == 1:
     col1, col2 = st.columns([1, 8])
     with col1:
@@ -167,15 +168,11 @@ if st.session_state.page == 1:
                 st.session_state.user_phone = phone
                 st.session_state.session_start = time.time()
                 st.session_state.feedback = []
-
                 success = store_user_info(name, email, phone)
                 if success:
-                    send_email(email, "KCET Chatbot Confirmation",
-                               f"Hi {name}, This is a CONFIRMATION mail regarding your Login in KCET Chatbot!!\n\nDetails:\nName: {name}\nEmail: {email}\nPhone: {phone}\n\nThanks for Connecting with us!")
+                    send_email(email, "KCET Chatbot Confirmation", f"Hi {name}, This is a CONFIRMATION mail regarding your Login in KCET Chatbot!!\n\nDetails:\nName: {name}\nEmail: {email}\nPhone: {phone}\n\nThanks for Connecting with us!")
                     st.session_state.page = 3
                     st.rerun()
-                else:
-                    st.error("Could not save your info, please try again later.")
             else:
                 st.warning("Please fill all fields to continue.")
 
@@ -184,7 +181,7 @@ if st.session_state.page == 1:
             st.session_state.page = 5
             st.rerun()
 
-# ========== PAGE 3 ==========
+# --- PAGE 3: Chat ---
 if st.session_state.page == 3:
     transition_effect()
 
@@ -324,7 +321,7 @@ Thanks for using our chatbot!
             st.session_state.page = 1
             st.rerun()
 
-# ========== PAGE 4 - ADMIN DASHBOARD ==========
+# --- PAGE 4: Admin Dashboard ---
 if st.session_state.page == 4:
     transition_effect()
 
@@ -391,30 +388,18 @@ if st.session_state.page == 4:
             st.session_state.page = 1
             st.rerun()
 
-# ========== PAGE 5 - Admin Login ==========
+# --- PAGE 5: Admin Login ---
 if st.session_state.page == 5:
-    transition_effect()
-
-    col1, col2 = st.columns([1, 8])
-    with col1:
-        st.image("kcet_logo.png", width=60)
-    with col2:
-        st.title("🔐 Admin Login")
-
-    st.markdown("Please enter the admin password to access the dashboard.")
-    admin_password_input = st.text_input("Enter Admin Password", type="password")
-
-    col_a, col_b = st.columns(2)
-    with col_a:
-        if st.button("✅ Submit", use_container_width=True):
-            if admin_password_input == ADMIN_PASSWORD:
-                st.session_state.admin_authenticated = True
-                st.session_state.page = 4
-                st.rerun()
-            else:
-                st.error("Incorrect password. Try again.")
-
-    with col_b:
-        if st.button("⬅️ Back", use_container_width=True):
-            st.session_state.page = 1
+    st.title("🔐 Admin Login")
+    admin_pass = st.text_input("Enter Admin Password", type="password")
+    if st.button("Login"):
+        if admin_pass == ADMIN_PASSWORD:
+            st.session_state.admin_authenticated = True
+            st.session_state.page = 4
             st.rerun()
+        else:
+            st.error("Incorrect admin password.")
+
+    if st.button("⬅️ Back to Login"):
+        st.session_state.page = 1
+        st.rerun()
