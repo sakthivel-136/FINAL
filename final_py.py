@@ -1,5 +1,3 @@
-# KCET Chatbot Full App - Setup (Loader Removed + Admin Filters)
-
 import streamlit as st
 import os, base64, re, time, pickle, tempfile, smtplib, sqlite3
 import pandas as pd
@@ -9,6 +7,9 @@ from gtts import gTTS
 from deep_translator import GoogleTranslator
 from fpdf import FPDF
 from email.message import EmailMessage
+
+# ===== Streamlit Page Config =====
+st.set_page_config(page_title="KCET Chatbot", page_icon="🤖", layout="wide")
 
 # ========== CONFIG ==========
 SENDER_EMAIL = "kamarajengg.edu.in@gmail.com"
@@ -106,14 +107,12 @@ def transition_effect():
         </style>
     """, unsafe_allow_html=True)
 
-def play_welcome_audio():
-    pass
-
+# ========== INIT RUN ==========
 init_state()
 init_db()
+
 # ========== PAGE 1 ==========
 if st.session_state.page == 1:
-    
     col1, col2 = st.columns([1, 8])
     with col1:
         st.image("kcet_logo.png", width=60)
@@ -145,15 +144,10 @@ if st.session_state.page == 1:
                 st.warning("Please fill all fields to continue.")
 
     with col4:
-            if st.button("🔐 Admin Panel", use_container_width=True):
-                st.session_state.page = 5
-                st.rerun()
+        if st.button("🔐 Admin Panel", use_container_width=True):
+            st.session_state.page = 5
+            st.rerun()
 
-
-
-
-
-# ========== PAGE 3 ==========
 # ========== PAGE 3 ==========
 if st.session_state.page == 3:
     transition_effect()
@@ -221,14 +215,11 @@ if st.session_state.page == 3:
             with open(pdf_path, "rb") as f:
                 st.download_button("Download PDF", f, file_name="kcet_chat.pdf")
 
-    # 📧 Email PDF
-with col2:
-    email_override = st.text_input("✏️ Change Email (optional)", value=st.session_state.get("user_email", ""))
-    if st.button("📧 Email PDF to Me", use_container_width=True):
-        user_email = email_override.strip() or st.session_state.get("user_email", None)
-
-        if user_email:
-            if st.confirm("Are you sure you want to email the PDF to this address?"):
+    with col2:
+        email_override = st.text_input("✏️ Change Email (optional)", value=st.session_state.get("user_email", ""))
+        if st.button("📧 Email PDF to Me", use_container_width=True):
+            user_email = email_override.strip() or st.session_state.get("user_email", None)
+            if user_email:
                 pdf_path = export_pdf_from_log()
                 try:
                     send_email(
@@ -240,9 +231,8 @@ with col2:
                     st.success(f"PDF emailed to {user_email}!")
                 except Exception as e:
                     st.error(f"Failed to send email: {e}")
-        else:
-            st.warning("Email not provided.")
-
+            else:
+                st.warning("Email not provided.")
 
     with col3:
         if st.button("🗑️ Clear Chat", use_container_width=True):
@@ -265,13 +255,11 @@ Email: {email}
 Phone: {phone}
 
 Thanks for using our chatbot!"""
-
                 try:
                     send_email(email, "KCET Chatbot - Logout Confirmation", logout_message)
                     st.success("Logout mail sent.")
                 except Exception as e:
                     st.warning(f"Email send failed: {e}")
-
             st.session_state.page = 1
             st.rerun()
 
@@ -293,7 +281,6 @@ if st.session_state.page == 4:
     st.subheader("🔍 Filter Chat Logs")
     usernames = logs_df['username'].unique().tolist()
     selected_user = st.selectbox("Select user (optional)", ["All"] + usernames)
-
     date_range = st.date_input("Select date range (optional)", [])
 
     filtered_logs = logs_df.copy()
@@ -322,6 +309,7 @@ if st.session_state.page == 4:
             filtered_logs.to_csv(csv_path, index=False)
             send_email(SENDER_EMAIL, "KCET Logs", "Attached are filtered chat logs.", csv_path)
             st.success("Logs emailed to admin")
+
     with col2:
         if st.button("⬇️ Download Excel", use_container_width=True):
             temp_path = os.path.join(tempfile.gettempdir(), "filtered_logs.xlsx")
@@ -329,13 +317,16 @@ if st.session_state.page == 4:
                 filtered_logs.to_excel(writer, index=False)
             with open(temp_path, "rb") as f:
                 st.download_button("Download Excel", f, file_name="filtered_logs.xlsx")
+
     with col3:
         if st.button("🏠 Back to Main Page", use_container_width=True):
             st.session_state.page = 1
             st.rerun()
-# ========== PAGE 5 - Admin Password Entry ==========
+
+# ========== PAGE 5 - Admin Login ==========
 if st.session_state.page == 5:
     transition_effect()
+
     col1, col2 = st.columns([1, 8])
     with col1:
         st.image("kcet_logo.png", width=60)
@@ -344,13 +335,13 @@ if st.session_state.page == 5:
 
     st.markdown("Please enter the admin password to access the dashboard.")
     admin_password_input = st.text_input("Enter Admin Password", type="password")
-    
+
     col_a, col_b = st.columns(2)
     with col_a:
         if st.button("✅ Submit", use_container_width=True):
             if admin_password_input == ADMIN_PASSWORD:
                 st.session_state.admin_authenticated = True
-                st.session_state.page = 4  # Go to dashboard
+                st.session_state.page = 4
                 st.rerun()
             else:
                 st.error("Incorrect password. Try again.")
@@ -359,4 +350,3 @@ if st.session_state.page == 5:
         if st.button("⬅️ Back", use_container_width=True):
             st.session_state.page = 1
             st.rerun()
-
