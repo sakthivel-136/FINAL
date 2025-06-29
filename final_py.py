@@ -1,4 +1,5 @@
 # KCET Chatbot Full App - Setup & Page 1, 2, 3, 4
+
 import streamlit as st
 import os, base64, re, time, pickle, tempfile, smtplib, sqlite3
 import pandas as pd
@@ -76,7 +77,6 @@ def save_to_db(user, role, msg):
     conn.close()
 
 def export_pdf_from_log():
-    from fpdf import FPDF
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
@@ -94,6 +94,9 @@ def transition_effect():
         }
         </style>
     """, unsafe_allow_html=True)
+
+def play_welcome_audio():
+    pass  # You can define your audio logic here
 
 init_state()
 init_db()
@@ -122,9 +125,11 @@ if st.session_state.page == 1:
         if st.button("🚀 Enter Chatbot", use_container_width=True):
             if name and email:
                 st.session_state.username = name
+                st.session_state.user_email = email
+                st.session_state.user_phone = phone
                 store_user_info(name, email, phone)
+                send_email(email, "KCET Chatbot Confirmation", f"Hi {name}, This is a CONFIRMATION mail regarding your Login in KCET Chatbot!!\n\nDetails:\nName: {name}\nEmail: {email}\nPhone: {phone}\n\nThanks for Connecting with us!")
                 st.session_state.page = 2
-                send_email(email, "KCET Chatbot Confirmation", f"Hi {name}, your login to KCET Chatbot is confirmed!")
                 st.rerun()
             else:
                 st.warning("Please fill all fields to continue.")
@@ -241,6 +246,13 @@ if st.session_state.page == 3:
             st.rerun()
     with col3:
         if st.button("🔒 Logout", use_container_width=True):
+            if "user_email" in st.session_state and "username" in st.session_state:
+                name = st.session_state.username
+                email = st.session_state.user_email
+                phone = st.session_state.get("user_phone", "Not provided")
+                logout_message = f"Hi {name},\n\nYou have successfully logged out from KCET Chatbot.\n\nDetails:\nName: {name}\nEmail: {email}\nPhone: {phone}\n\nThanks!"
+                send_email(email, "KCET Chatbot - Logout Confirmation", logout_message)
+
             st.session_state.page = 1
             st.rerun()
 
