@@ -178,6 +178,7 @@ if st.session_state.page == 2:
 
 
 # ========== PAGE 3 ==========
+# ========== PAGE 3 ==========
 if st.session_state.page == 3:
     transition_effect()
     col1, col2 = st.columns([1, 8])
@@ -197,9 +198,7 @@ if st.session_state.page == 3:
         "Elegant Gold": ("#fff4cc", "#000000")
     }
 
-    user_color, text_color = themes[theme_label]
-
-    st.markdown("<style>.user-msg { font-weight: bold; color: " + text_color + "; }</style>", unsafe_allow_html=True)
+    user_color, _ = themes[theme_label]  # We now force black text regardless of theme
 
     with st.form("chat_form", clear_on_submit=True):
         user_input = st.text_input("💬 Type your message")
@@ -226,15 +225,15 @@ if st.session_state.page == 3:
         save_to_db("KCET Bot", "Assistant", answer)
         st.rerun()
 
+    # ✅ CHAT DISPLAY with BLACK TEXT
     for speaker, msg, role in st.session_state.original_log:
         align = 'right' if role == "User" else 'left'
         bubble_color = user_color if role == "User" else "#f0f0f0"
         st.markdown(f"""
-    <div style='background-color:{bubble_color}; padding:10px; margin:10px; border-radius:10px; text-align:{align}; transition: 0.5s all; color: black;'>
-        <b class='user-msg'>{speaker}</b>: {msg}
-    </div>
-""", unsafe_allow_html=True)
-
+            <div style='background-color:{bubble_color}; padding:10px; margin:10px; border-radius:10px; text-align:{align}; color: black; transition: 0.5s all;'>
+                <b>{speaker}</b>: {msg}
+            </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -254,11 +253,27 @@ if st.session_state.page == 3:
                 name = st.session_state.username
                 email = st.session_state.user_email
                 phone = st.session_state.get("user_phone", "Not provided")
-                logout_message = f"Hi {name},\n\nYou have successfully logged out from KCET Chatbot.\n\nDetails:\nName: {name}\nEmail: {email}\nPhone: {phone}\n\nThanks!"
-                send_email(email, "KCET Chatbot - Logout Confirmation", logout_message)
+
+                logout_message = f"""Hi {name},
+
+You have successfully logged out from KCET Chatbot.
+
+Details:
+Name: {name}
+Email: {email}
+Phone: {phone}
+
+Thanks!"""
+
+                try:
+                    send_email(email, "KCET Chatbot - Logout Confirmation", logout_message)
+                    st.success("Logout mail sent.")
+                except Exception as e:
+                    st.warning(f"Email send failed: {e}")
 
             st.session_state.page = 1
             st.rerun()
+
 
 # ========== PAGE 4 ==========
 if st.session_state.page == 4:
