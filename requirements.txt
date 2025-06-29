@@ -18,3 +18,4 @@ python-docx
 requests
 deep_translator
 matplotlib
+openpyxl
