@@ -95,6 +95,47 @@ def transition_effect():
         </style>
     """, unsafe_allow_html=True)
 
+def show_custom_loader():
+    st.markdown("""
+        <style>
+        .loader-wrapper {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(255,255,255,0.95);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .loader {
+            border: 12px solid #f3f3f3;
+            border-top: 12px solid #3498db;
+            border-radius: 50%;
+            width: 100px;
+            height: 100px;
+            animation: spin 1.2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        </style>
+        <div class="loader-wrapper" id="loader">
+            <div class="loader"></div>
+        </div>
+        <script>
+        setTimeout(function() {
+            var loader = document.getElementById("loader");
+            if (loader) {
+                loader.style.display = "none";
+            }
+        }, 1500);
+        </script>
+    """, unsafe_allow_html=True)
+
 def play_welcome_audio():
     pass  # You can define your audio logic here
 
@@ -151,11 +192,9 @@ if st.session_state.page == 1:
 
 # ========== PAGE 2 ==========
 if st.session_state.page == 2:
-    with st.spinner("🔄 Loading Assistant Pre-check..."):
-        time.sleep(1.5)
-
+    show_custom_loader()
     transition_effect()
-    
+
     col1, col2 = st.columns([1, 8])
     with col1:
         st.image("kcet_logo.png", width=60)
@@ -179,10 +218,8 @@ if st.session_state.page == 2:
         if st.button("➡️ Start Chat", use_container_width=True):
             st.session_state.page = 3
             st.rerun()
-
     with col2:
         if st.button("⬅️ Back", use_container_width=True):
-            # Send logout mail before going back to Page 1
             if "user_email" in st.session_state and "username" in st.session_state:
                 name = st.session_state.username
                 email = st.session_state.user_email
@@ -198,20 +235,13 @@ Email: {email}
 Phone: {phone}
 
 Thanks!"""
-
-                try:
-                    send_email(email, "KCET Chatbot - Logout Confirmation", logout_message)
-                    st.success("Logout mail sent.")
-                except Exception as e:
-                    st.warning(f"Email send failed: {e}")
-
+                send_email(email, "KCET Chatbot - Logout Confirmation", logout_message)
             st.session_state.page = 1
             st.rerun()
 
-
 # ========== PAGE 3 ==========
-with st.spinner("🔄 Loading..."):
-    time.sleep(1.5)
+if st.session_state.page == 3:
+    show_custom_loader()
 
 if st.session_state.page == 3:
     transition_effect()
@@ -334,11 +364,10 @@ Thanks!"""
             st.rerun()
 
 # ========== PAGE 4 ==========
-with st.spinner("🔄 Loading..."):
-    time.sleep(1.5)
-
 if st.session_state.page == 4:
+    show_custom_loader()
     transition_effect()
+
     col1, col2 = st.columns([1, 8])
     with col1:
         st.image("kcet_logo.png", width=60)
