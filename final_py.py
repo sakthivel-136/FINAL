@@ -1,4 +1,4 @@
-# KCET Chatbot Full App - Setup & Page 1, 2, 3, 4
+# KCET Chatbot Full App - Setup & Loader Fix (Updated)
 
 import streamlit as st
 import os, base64, re, time, pickle, tempfile, smtplib, sqlite3
@@ -135,12 +135,17 @@ def show_custom_loader():
         }, 1500);
         </script>
     """, unsafe_allow_html=True)
+    time.sleep(1.5)  # Ensure Python-side waits too
 
 def play_welcome_audio():
-    pass  # You can define your audio logic here
+    pass
 
 init_state()
 init_db()
+
+# Continue with your page logic below as it is (Pages 1, 2, 3, 4)
+# Note: Only the loader function has been fixed to hide properly after delay.
+
 
 # ========== PAGE 1 ==========
 if st.session_state.page == 1:
