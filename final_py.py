@@ -67,42 +67,43 @@ def export_pdf_from_log():
     pdf.output(path)
     return path
 
-# ========== DB INIT WITH SCHEMA CHECK & UPDATE ==========
+# ========== DB INIT ==========
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    # Create chatlog table if not exists
     c.execute("""
         CREATE TABLE IF NOT EXISTS chatlog (
             username TEXT, role TEXT, message TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )""")
-    # Create users table if not exists
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            name TEXT, email TEXT, phone TEXT,
+            name TEXT, email TEXT, ip TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )""")
-
-    # Check if 'ip' column exists in users table
+    # Migrate users table if old version exists
     c.execute("PRAGMA table_info(users);")
     columns = [col[1] for col in c.fetchall()]
-    if "ip" not in columns:
-        # Add ip column
-        c.execute("ALTER TABLE users ADD COLUMN ip TEXT;")
-        conn.commit()
-
+    if "phone" in columns:
+        c.execute("ALTER TABLE users RENAME TO users_old;")
+        c.execute("""
+            CREATE TABLE users (
+                name TEXT, email TEXT, ip TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        c.execute("INSERT INTO users (name, email, ip, timestamp) SELECT name, email, ip, timestamp FROM users_old;")
+        c.execute("DROP TABLE users_old;")
     conn.commit()
     conn.close()
 
-def store_user_info(name, email, phone):
+def store_user_info(name, email):
     ip_address = get_ip()
     try:
         conn = sqlite3.connect(DB_FILE)
-        conn.execute("INSERT INTO users (name, email, phone, ip) VALUES (?, ?, ?, ?)", (name, email, phone, ip_address))
+        conn.execute("INSERT INTO users (name, email, ip) VALUES (?, ?, ?)", (name, email, ip_address))
         conn.commit()
         conn.close()
-        # Send welcome email but do not block flow on failure
         try:
             send_email(email, "Welcome to KCET Chatbot", f"Hi {name},\nThanks for logging in.")
         except Exception as e:
@@ -126,7 +127,7 @@ def init_state():
         if k not in st.session_state:
             st.session_state[k] = v
 
-# ========== UI TRANSITION EFFECT ==========
+# ========== UI TRANSITION ==========
 def transition_effect():
     st.markdown("""
         <style>
@@ -141,7 +142,6 @@ def transition_effect():
 init_state()
 init_db()
 
-# --- PAGE 1: Login ---
 if st.session_state.page == 1:
     col1, col2 = st.columns([1, 8])
     with col1:
@@ -157,7 +157,6 @@ if st.session_state.page == 1:
 
     name = st.text_input("🧑 Your Name")
     email = st.text_input("📧 Your Email")
-    phone = st.text_input("📱 Phone Number")
 
     col3, col4 = st.columns([1, 1])
     with col3:
@@ -165,12 +164,11 @@ if st.session_state.page == 1:
             if name and email:
                 st.session_state.username = name
                 st.session_state.user_email = email
-                st.session_state.user_phone = phone
                 st.session_state.session_start = time.time()
                 st.session_state.feedback = []
-                success = store_user_info(name, email, phone)
+                success = store_user_info(name, email)
                 if success:
-                    send_email(email, "KCET Chatbot Confirmation", f"Hi {name}, This is a CONFIRMATION mail regarding your Login in KCET Chatbot!!\n\nDetails:\nName: {name}\nEmail: {email}\nPhone: {phone}\n\nThanks for Connecting with us!")
+                    send_email(email, "KCET Chatbot Confirmation", f"Hi {name}, This is a CONFIRMATION mail regarding your Login in KCET Chatbot!!\n\nDetails:\nName: {name}\nEmail: {email}\n\nThanks for Connecting with us!")
                     st.session_state.page = 3
                     st.rerun()
             else:
@@ -180,6 +178,7 @@ if st.session_state.page == 1:
         if st.button("🔐 Admin Panel", use_container_width=True):
             st.session_state.page = 5
             st.rerun()
+
 
 # --- PAGE 3: Chat ---
 if st.session_state.page == 3:
