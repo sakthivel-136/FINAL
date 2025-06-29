@@ -142,6 +142,7 @@ def transition_effect():
 init_state()
 init_db()
 
+# --- PAGE 1: Login ---
 if st.session_state.page == 1:
     col1, col2 = st.columns([1, 8])
     with col1:
@@ -168,7 +169,12 @@ if st.session_state.page == 1:
                 st.session_state.feedback = []
                 success = store_user_info(name, email)
                 if success:
-                    send_email(email, "KCET Chatbot Confirmation", f"Hi {name}, This is a CONFIRMATION mail regarding your Login in KCET Chatbot!!\n\nDetails:\nName: {name}\nEmail: {email}\n\nThanks for Connecting with us!")
+                    send_email(
+                        email,
+                        "KCET Chatbot Confirmation",
+                        f"Hi {name}, This is a CONFIRMATION mail regarding your Login in KCET Chatbot!!\n\n"
+                        f"Details:\nName: {name}\nEmail: {email}\n\nThanks for Connecting with us!"
+                    )
                     st.session_state.page = 3
                     st.rerun()
             else:
