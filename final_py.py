@@ -150,9 +150,11 @@ if st.session_state.page == 1:
 
 
 # ========== PAGE 2 ==========
+# ========== PAGE 2 ==========
 if st.session_state.page == 2:
     transition_effect()
-    col1, col2 = st.columns([1, 8])
+    
+    col1, col2 = st.columns([1, 8])  # Make sure this line is here
     with col1:
         st.image("kcet_logo.png", width=60)
     with col2:
@@ -173,6 +175,7 @@ if st.session_state.page == 2:
     if st.button("➡️ Start Chat", use_container_width=True):
         st.session_state.page = 3
         st.rerun()
+
 
 # ========== PAGE 3 ==========
 if st.session_state.page == 3:
