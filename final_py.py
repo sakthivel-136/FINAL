@@ -1,4 +1,4 @@
-# KCET Chatbot Full App - Setup (Loader Removed)
+# KCET Chatbot Full App - Setup (Loader Removed + Admin Filters)
 
 import streamlit as st
 import os, base64, re, time, pickle, tempfile, smtplib, sqlite3
@@ -86,6 +86,17 @@ def export_pdf_from_log():
     pdf.output(path)
     return path
 
+def export_excel_logs():
+    conn = sqlite3.connect(DB_FILE)
+    users = pd.read_sql_query("SELECT * FROM users", conn)
+    logs = pd.read_sql_query("SELECT * FROM chatlog", conn)
+    conn.close()
+    xlsx_path = os.path.join(tempfile.gettempdir(), "kcet_logs.xlsx")
+    with pd.ExcelWriter(xlsx_path) as writer:
+        users.to_excel(writer, sheet_name="Users", index=False)
+        logs.to_excel(writer, sheet_name="ChatLogs", index=False)
+    return xlsx_path
+
 def transition_effect():
     st.markdown("""
         <style>
@@ -100,10 +111,6 @@ def play_welcome_audio():
 
 init_state()
 init_db()
-
-# Continue with your page logic below as it is (Pages 1, 2, 3, 4)
-# Note: Loader function has been removed completely as per request.
-
 # ========== PAGE 1 ==========
 if st.session_state.page == 1:
     
