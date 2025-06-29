@@ -105,7 +105,7 @@ if st.session_state.page == 1:
     with col1:
         st.image("kcet_logo.png", width=60)
     with col2:
-        st.title("🎓 Welcome to KCET Chatbot")
+        st.title(" Welcome to KCET Chatbot")
 
     st.markdown("""
         <style>
