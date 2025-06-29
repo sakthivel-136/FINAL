@@ -328,7 +328,7 @@ Thanks!"""
             st.session_state.page = 1
             st.rerun()
 
-# ========== PAGE 4 ==========
+# ========== PAGE 4 - ADMIN DASHBOARD ==========
 if st.session_state.page == 4:
     transition_effect()
 
@@ -339,39 +339,50 @@ if st.session_state.page == 4:
         st.title("🛠️ Admin Dashboard")
 
     conn = sqlite3.connect(DB_FILE)
-    users = pd.read_sql_query("SELECT * FROM users", conn)
-    logs = pd.read_sql_query("SELECT * FROM chatlog", conn)
+    users_df = pd.read_sql_query("SELECT * FROM users", conn)
+    logs_df = pd.read_sql_query("SELECT * FROM chatlog", conn)
     conn.close()
 
-    st.subheader("👥 Registered Users")
-    st.dataframe(users)
+    st.subheader("🔍 Filter Chat Logs")
+    usernames = logs_df['username'].unique().tolist()
+    selected_user = st.selectbox("Select user (optional)", ["All"] + usernames)
 
-    st.subheader("📋 Chat Logs")
-    st.dataframe(logs)
+    date_range = st.date_input("Select date range (optional)", [])
 
-    st.subheader("📈 Chat Analytics")
-    user_msgs = logs[logs['role'] == "User"]
-    bot_msgs = logs[logs['role'] == "Assistant"]
-    col_u, col_b = st.columns(2)
-    with col_u:
-        st.markdown("**User Messages Count**")
-        st.bar_chart(user_msgs['username'].value_counts())
-    with col_b:
-        st.markdown("**Assistant Messages Count**")
-        st.bar_chart(bot_msgs['username'].value_counts())
+    filtered_logs = logs_df.copy()
+    if selected_user != "All":
+        filtered_logs = filtered_logs[filtered_logs['username'] == selected_user]
 
-    if st.button("📧 Email Logs", use_container_width=True):
-        csv_path = os.path.join(tempfile.gettempdir(), "kcet_logs.csv")
-        logs.to_csv(csv_path, index=False)
-        send_email(SENDER_EMAIL, "KCET Logs", "Attached are all chat logs.", csv_path)
-        st.success("Logs emailed to admin")
+    if len(date_range) == 2:
+        start_date = pd.to_datetime(date_range[0])
+        end_date = pd.to_datetime(date_range[1]) + pd.Timedelta(days=1)
+        filtered_logs['timestamp'] = pd.to_datetime(filtered_logs['timestamp'])
+        filtered_logs = filtered_logs[(filtered_logs['timestamp'] >= start_date) & (filtered_logs['timestamp'] < end_date)]
 
-    if st.button("⬇️ Download Logs as Excel", use_container_width=True):
-        xlsx_path = export_excel_logs()
-        with open(xlsx_path, "rb") as f:
-            st.download_button("Download Excel", f, file_name="kcet_logs.xlsx")
+    st.subheader("📋 Filtered Chat Logs")
+    st.dataframe(filtered_logs)
 
-    if st.button("🏠 Back to Main Page", use_container_width=True):
-        st.session_state.page = 1
-        st.rerun()
+    st.subheader("📈 Date-wise Chat Usage")
+    filtered_logs['date'] = pd.to_datetime(filtered_logs['timestamp']).dt.date
+    date_chart = filtered_logs.groupby(['date', 'role']).size().unstack(fill_value=0)
+    st.bar_chart(date_chart)
 
+    st.subheader("📦 Export Options")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("📧 Email Logs", use_container_width=True):
+            csv_path = os.path.join(tempfile.gettempdir(), "kcet_logs.csv")
+            filtered_logs.to_csv(csv_path, index=False)
+            send_email(SENDER_EMAIL, "KCET Logs", "Attached are filtered chat logs.", csv_path)
+            st.success("Logs emailed to admin")
+    with col2:
+        if st.button("⬇️ Download Excel", use_container_width=True):
+            temp_path = os.path.join(tempfile.gettempdir(), "filtered_logs.xlsx")
+            with pd.ExcelWriter(temp_path) as writer:
+                filtered_logs.to_excel(writer, index=False)
+            with open(temp_path, "rb") as f:
+                st.download_button("Download Excel", f, file_name="filtered_logs.xlsx")
+    with col3:
+        if st.button("🏠 Back to Main Page", use_container_width=True):
+            st.session_state.page = 1
+            st.rerun()
