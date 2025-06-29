@@ -146,8 +146,8 @@ if st.session_state.page == 1:
 
     with col4:
             if st.button("🔐 Admin Panel", use_container_width=True):
-        st.session_state.page = 5
-        st.rerun()
+                st.session_state.page = 5
+                st.rerun()
 
 
 
