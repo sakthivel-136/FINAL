@@ -208,8 +208,10 @@ Thanks!"""
             st.rerun()
 
 # ========== PAGE 3 ==========
+# ========== PAGE 3 ==========
 if st.session_state.page == 3:
-
+    transition_effect()
+    
     col1, col2 = st.columns([1, 8])
     with col1:
         st.image("kcet_logo.png", width=60)
@@ -254,7 +256,6 @@ if st.session_state.page == 3:
         save_to_db("KCET Bot", "Assistant", answer)
         st.rerun()
 
-    # ✅ CHAT DISPLAY with BLACK TEXT
     for speaker, msg, role in st.session_state.original_log:
         align = 'right' if role == "User" else 'left'
         bubble_color = user_color if role == "User" else "#f0f0f0"
@@ -267,7 +268,6 @@ if st.session_state.page == 3:
     st.markdown("---")
     col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 
-    # 📥 Export to PDF & Download
     with col1:
         if st.button("📤 Export to PDF", use_container_width=True):
             pdf_path = export_pdf_from_log()
@@ -275,7 +275,6 @@ if st.session_state.page == 3:
             with open(pdf_path, "rb") as f:
                 st.download_button("Download PDF", f, file_name="kcet_chat.pdf")
 
-    # 📧 Email PDF
     with col2:
         if st.button("📧 Email PDF to Me", use_container_width=True):
             pdf_path = export_pdf_from_log()
@@ -285,7 +284,12 @@ if st.session_state.page == 3:
                     send_email(
                         to_email=user_email,
                         subject="KCET Chatbot Chat Log PDF",
-                        body=f"Hi {st.session_state.username},\n\nPlease find attached the PDF export of your KCET chatbot session.",
+                        body=f"""Hi {st.session_state.username},
+
+Please find attached the PDF export of your KCET chatbot session with Kamaraj College of Engineering and Technology.
+
+Best regards,
+KCET Chatbot Team""",
                         attachment=pdf_path
                     )
                     st.success(f"PDF emailed to {user_email}!")
@@ -294,30 +298,27 @@ if st.session_state.page == 3:
             else:
                 st.warning("Please enter your email on the previous page (Assistant Pre-check).")
 
-    # 🗑️ Clear Chat
     with col3:
         if st.button("🗑️ Clear Chat", use_container_width=True):
             st.session_state.original_log = []
             st.rerun()
 
-    # 🔒 Logout with Email
     with col4:
         if st.button("🔒 Logout", use_container_width=True):
             if "user_email" in st.session_state and "username" in st.session_state:
                 name = st.session_state.username
                 email = st.session_state.user_email
                 phone = st.session_state.get("user_phone", "Not provided")
-
                 logout_message = f"""Hi {name},
 
-You have successfully logged out from KCET Chatbot.
+You have successfully logged out from KCET Chatbot - Kamaraj College of Engineering and Technology.
 
 Details:
 Name: {name}
 Email: {email}
 Phone: {phone}
 
-Thanks!"""
+Thanks for using our chatbot!"""
 
                 try:
                     send_email(email, "KCET Chatbot - Logout Confirmation", logout_message)
