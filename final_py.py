@@ -178,7 +178,6 @@ if st.session_state.page == 2:
 
 
 # ========== PAGE 3 ==========
-# ========== PAGE 3 ==========
 if st.session_state.page == 3:
     transition_effect()
     col1, col2 = st.columns([1, 8])
@@ -198,7 +197,7 @@ if st.session_state.page == 3:
         "Elegant Gold": ("#fff4cc", "#000000")
     }
 
-    user_color, _ = themes[theme_label]  # We now force black text regardless of theme
+    user_color, _ = themes[theme_label]
 
     with st.form("chat_form", clear_on_submit=True):
         user_input = st.text_input("💬 Type your message")
@@ -236,18 +235,43 @@ if st.session_state.page == 3:
         """, unsafe_allow_html=True)
 
     st.markdown("---")
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+
+    # 📥 Export to PDF & Download
     with col1:
         if st.button("📤 Export to PDF", use_container_width=True):
             pdf_path = export_pdf_from_log()
             st.success("PDF exported!")
             with open(pdf_path, "rb") as f:
                 st.download_button("Download PDF", f, file_name="kcet_chat.pdf")
+
+    # 📧 Email PDF
     with col2:
+        if st.button("📧 Email PDF to Me", use_container_width=True):
+            pdf_path = export_pdf_from_log()
+            user_email = st.session_state.get("export_email", None)
+            if user_email:
+                try:
+                    send_email(
+                        to_email=user_email,
+                        subject="KCET Chatbot Chat Log PDF",
+                        body=f"Hi {st.session_state.username},\n\nPlease find attached the PDF export of your KCET chatbot session.",
+                        attachment=pdf_path
+                    )
+                    st.success(f"PDF emailed to {user_email}!")
+                except Exception as e:
+                    st.error(f"Failed to send email: {e}")
+            else:
+                st.warning("Please enter your email on the previous page (Assistant Pre-check).")
+
+    # 🗑️ Clear Chat
+    with col3:
         if st.button("🗑️ Clear Chat", use_container_width=True):
             st.session_state.original_log = []
             st.rerun()
-    with col3:
+
+    # 🔒 Logout with Email
+    with col4:
         if st.button("🔒 Logout", use_container_width=True):
             if "user_email" in st.session_state and "username" in st.session_state:
                 name = st.session_state.username
@@ -273,7 +297,6 @@ Thanks!"""
 
             st.session_state.page = 1
             st.rerun()
-
 
 # ========== PAGE 4 ==========
 if st.session_state.page == 4:
