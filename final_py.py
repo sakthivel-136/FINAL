@@ -1,5 +1,5 @@
 import streamlit as st
-import os, base64, re, time, pickle, tempfile, smtplib, sqlite3, socket, datetime
+import os, base64, re, time, pickle, tempfile, smtplib, sqlite3, socket, datetime, traceback
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -32,64 +32,7 @@ def get_ip():
 def remove_emojis(text):
     return re.sub(r'[^\x00-\x7F]+', '', text)
 
-def send_email(to_email, subject, body, attachment=None):
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = SENDER_EMAIL
-    msg["To"] = to_email
-    msg.set_content(body)
-    if attachment and os.path.exists(attachment):
-        with open(attachment, "rb") as f:
-            msg.add_attachment(f.read(), maintype="application", subtype="octet-stream", filename=os.path.basename(attachment))
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-            smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
-            smtp.send_message(msg)
-    except Exception as e:
-        st.warning(f"Email error: {e}")
-
-def save_to_db(user, role, msg):
-    conn = sqlite3.connect(DB_FILE)
-    conn.execute("INSERT INTO chatlog (username, role, message) VALUES (?, ?, ?)", (user, role, msg))
-    conn.commit()
-    conn.close()
-
-def store_user_info(name, email, phone):
-    ip_address = get_ip()
-    try:
-        conn = sqlite3.connect(DB_FILE)
-        conn.execute("INSERT INTO users (name, email, phone, ip) VALUES (?, ?, ?, ?)", (name, email, phone, ip_address))
-        conn.commit()
-        conn.close()
-        send_email(email, "Welcome to KCET Chatbot", f"Hi {name},\nThanks for logging in.")
-    except Exception as e:
-        st.error(f"Failed to store user info: {e}")
-
-def export_pdf_from_log():
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    for speaker, msg, role in st.session_state.original_log:
-        pdf.multi_cell(0, 10, txt=f"{remove_emojis(speaker)} ({role}): {remove_emojis(msg)}")
-    path = os.path.join(tempfile.gettempdir(), "kcet_chat.pdf")
-    pdf.output(path)
-    return path
-
-def export_user_chat_pdf(username):
-    conn = sqlite3.connect(DB_FILE)
-    logs_df = pd.read_sql_query("SELECT * FROM chatlog WHERE username = ?", conn, params=(username,))
-    conn.close()
-    if logs_df.empty:
-        return None
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    for _, row in logs_df.iterrows():
-        pdf.multi_cell(0, 10, txt=f"{row['username']} ({row['role']}): {row['message']}")
-    path = os.path.join(tempfile.gettempdir(), f"{username}_chat.pdf")
-    pdf.output(path)
-    return path
-
+# ========== INIT ==========
 def init_state():
     defaults = {
         "page": 1, "username": "You", "language": "en", "original_log": [],
@@ -118,6 +61,72 @@ def init_db():
     conn.commit()
     conn.close()
 
+def store_user_info(name, email, phone):
+    ip_address = get_ip()
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        conn.execute("INSERT INTO users (name, email, phone, ip) VALUES (?, ?, ?, ?)", (name, email, phone, ip_address))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        st.error(f"Failed to store user info in DB: {e}")
+        st.error(traceback.format_exc())
+        return False
+
+    try:
+        send_email(email, "Welcome to KCET Chatbot", f"Hi {name},\nThanks for logging in.")
+    except Exception as e:
+        st.warning(f"Failed to send welcome email: {e}")
+        st.warning(traceback.format_exc())
+    return True
+
+def send_email(to_email, subject, body, attachment=None):
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = SENDER_EMAIL
+    msg["To"] = to_email
+    msg.set_content(body)
+    if attachment and os.path.exists(attachment):
+        with open(attachment, "rb") as f:
+            msg.add_attachment(f.read(), maintype="application", subtype="octet-stream", filename=os.path.basename(attachment))
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
+            smtp.send_message(msg)
+    except Exception as e:
+        st.warning(f"Email error: {e}")
+
+def save_to_db(user, role, msg):
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("INSERT INTO chatlog (username, role, message) VALUES (?, ?, ?)", (user, role, msg))
+    conn.commit()
+    conn.close()
+
+def export_pdf_from_log():
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    for speaker, msg, role in st.session_state.original_log:
+        pdf.multi_cell(0, 10, txt=f"{remove_emojis(speaker)} ({role}): {remove_emojis(msg)}")
+    path = os.path.join(tempfile.gettempdir(), "kcet_chat.pdf")
+    pdf.output(path)
+    return path
+
+def export_user_chat_pdf(username):
+    conn = sqlite3.connect(DB_FILE)
+    logs_df = pd.read_sql_query("SELECT * FROM chatlog WHERE username = ?", conn, params=(username,))
+    conn.close()
+    if logs_df.empty:
+        return None
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    for _, row in logs_df.iterrows():
+        pdf.multi_cell(0, 10, txt=f"{row['username']} ({row['role']}): {row['message']}")
+    path = os.path.join(tempfile.gettempdir(), f"{username}_chat.pdf")
+    pdf.output(path)
+    return path
+
 def transition_effect():
     st.markdown("""
         <style>
@@ -127,11 +136,11 @@ def transition_effect():
         </style>
     """, unsafe_allow_html=True)
 
-# Initialization
+# Initialize
 init_state()
 init_db()
 
-# -------- PAGE 1: Login --------
+# ========== PAGE 1 ==========
 if st.session_state.page == 1:
     col1, col2 = st.columns([1, 8])
     with col1:
@@ -158,11 +167,15 @@ if st.session_state.page == 1:
                 st.session_state.user_phone = phone
                 st.session_state.session_start = time.time()
                 st.session_state.feedback = []
-                store_user_info(name, email, phone)
-                send_email(email, "KCET Chatbot Confirmation",
-                           f"Hi {name}, This is a CONFIRMATION mail regarding your Login in KCET Chatbot!!\n\nDetails:\nName: {name}\nEmail: {email}\nPhone: {phone}\n\nThanks for Connecting with us!")
-                st.session_state.page = 3
-                st.rerun()
+
+                success = store_user_info(name, email, phone)
+                if success:
+                    send_email(email, "KCET Chatbot Confirmation",
+                               f"Hi {name}, This is a CONFIRMATION mail regarding your Login in KCET Chatbot!!\n\nDetails:\nName: {name}\nEmail: {email}\nPhone: {phone}\n\nThanks for Connecting with us!")
+                    st.session_state.page = 3
+                    st.rerun()
+                else:
+                    st.error("Could not save your info, please try again later.")
             else:
                 st.warning("Please fill all fields to continue.")
 
@@ -171,9 +184,10 @@ if st.session_state.page == 1:
             st.session_state.page = 5
             st.rerun()
 
-# -------- PAGE 3: Chatbot --------
-elif st.session_state.page == 3:
+# ========== PAGE 3 ==========
+if st.session_state.page == 3:
     transition_effect()
+
     col1, col2 = st.columns([1, 8])
     with col1:
         st.image("kcet_logo.png", width=60)
@@ -190,6 +204,7 @@ elif st.session_state.page == 3:
         "Mint Green": ("#d2f4e3", "#000000"),
         "Elegant Gold": ("#fff4cc", "#000000")
     }
+
     user_color, _ = themes[theme_label]
 
     with st.form("chat_form", clear_on_submit=True):
@@ -216,7 +231,7 @@ elif st.session_state.page == 3:
         save_to_db(st.session_state.username, "User", user_input)
         save_to_db("KCET Bot", "Assistant", answer)
 
-        # Feedback for user only
+        # Feedback radio for user (per question)
         feedback_option = st.radio(
             "Was this answer helpful?",
             ["👍 Yes", "👎 No"],
@@ -309,9 +324,10 @@ Thanks for using our chatbot!
             st.session_state.page = 1
             st.rerun()
 
-# -------- PAGE 4: Admin Dashboard --------
-elif st.session_state.page == 4:
+# ========== PAGE 4 - ADMIN DASHBOARD ==========
+if st.session_state.page == 4:
     transition_effect()
+
     col1, col2 = st.columns([1, 8])
     with col1:
         st.image("kcet_logo.png", width=60)
@@ -359,39 +375,46 @@ elif st.session_state.page == 4:
         if st.button("📧 Email Logs", use_container_width=True):
             csv_path = os.path.join(tempfile.gettempdir(), "kcet_logs.csv")
             filtered_logs.to_csv(csv_path, index=False)
-            try:
-                send_email(SENDER_EMAIL, "KCET Logs", "Attached are filtered chat logs.", csv_path)
-                st.success("Logs emailed to admin.")
-            except Exception as e:
-                st.error(f"Failed to send logs email: {e}")
+            send_email(SENDER_EMAIL, "KCET Logs", "Attached are filtered chat logs.", csv_path)
+            st.success("Logs emailed to admin")
 
     with col2:
-        if st.button("🗑️ Clear All Logs", use_container_width=True):
-            conn = sqlite3.connect(DB_FILE)
-            conn.execute("DELETE FROM chatlog")
-            conn.execute("DELETE FROM users")
-            conn.commit()
-            conn.close()
-            st.success("All logs cleared.")
-            st.experimental_rerun()
+        if st.button("⬇️ Download Excel", use_container_width=True):
+            temp_path = os.path.join(tempfile.gettempdir(), "filtered_logs.xlsx")
+            with pd.ExcelWriter(temp_path) as writer:
+                filtered_logs.to_excel(writer, index=False)
+            with open(temp_path, "rb") as f:
+                st.download_button("Download Excel", f, file_name="filtered_logs.xlsx")
 
     with col3:
-        if st.button("⬅️ Back to Login", use_container_width=True):
+        if st.button("🏠 Back to Main Page", use_container_width=True):
             st.session_state.page = 1
             st.rerun()
 
-# -------- PAGE 5: Admin Login --------
-elif st.session_state.page == 5:
-    st.title("🔐 Admin Login")
-    password = st.text_input("Enter admin password:", type="password")
-    if st.button("Login"):
-        if password == ADMIN_PASSWORD:
-            st.session_state.admin_authenticated = True
-            st.session_state.page = 4
-            st.success("Admin login successful!")
+# ========== PAGE 5 - Admin Login ==========
+if st.session_state.page == 5:
+    transition_effect()
+
+    col1, col2 = st.columns([1, 8])
+    with col1:
+        st.image("kcet_logo.png", width=60)
+    with col2:
+        st.title("🔐 Admin Login")
+
+    st.markdown("Please enter the admin password to access the dashboard.")
+    admin_password_input = st.text_input("Enter Admin Password", type="password")
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        if st.button("✅ Submit", use_container_width=True):
+            if admin_password_input == ADMIN_PASSWORD:
+                st.session_state.admin_authenticated = True
+                st.session_state.page = 4
+                st.rerun()
+            else:
+                st.error("Incorrect password. Try again.")
+
+    with col_b:
+        if st.button("⬅️ Back", use_container_width=True):
+            st.session_state.page = 1
             st.rerun()
-        else:
-            st.error("Incorrect password.")
-    if st.button("Back to Login"):
-        st.session_state.page = 1
-        st.rerun()
