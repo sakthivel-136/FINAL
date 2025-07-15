@@ -304,8 +304,6 @@ You have successfully logged out from KCET Chatbot - Kamaraj College of Engineer
 Details:
 Name: {name}
 Email: {email}
-Phone: {phone}
-Session Duration: {mins} minutes
 
 Thanks for using our chatbot!
 """
