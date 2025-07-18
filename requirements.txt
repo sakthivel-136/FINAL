@@ -19,3 +19,4 @@ requests
 deep_translator
 matplotlib
 openpyxl
+sentence-transformers
