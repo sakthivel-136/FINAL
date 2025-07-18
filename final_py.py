@@ -7,6 +7,7 @@ from gtts import gTTS
 from deep_translator import GoogleTranslator
 from fpdf import FPDF
 from email.message import EmailMessage
+from sentence_transformers import SentenceTransformer, util
 
 st.set_page_config(page_title="KCET Chatbot", page_icon="🤖", layout="wide")
 
@@ -214,16 +215,30 @@ if st.session_state.page == 3:
         send = st.form_submit_button("Send")
 
     if send and user_input:
+        from sentence_transformers import SentenceTransformer, util
+
+        # Load model once
+        if "bert_model" not in st.session_state:
+            st.session_state.bert_model = SentenceTransformer("all-MiniLM-L6-v2")
+        model = st.session_state.bert_model
+
+        # Load data and pre-encode questions once
         vec_data = pd.read_csv(CSV_FILE)
-        questions = vec_data['Question'].str.lower().str.strip()
-        answers = vec_data['Answer']
-        vectorizer = TfidfVectorizer()
-        vectors = vectorizer.fit_transform(questions)
-        input_vec = vectorizer.transform([user_input.lower()])
-        similarity = cosine_similarity(input_vec, vectors)
-        idx = similarity.argmax()
-        max_sim = similarity.max()
-        answer = answers[idx] if max_sim >= THRESHOLD else "Sorry, I couldn't understand that."
+        questions = vec_data["Question"].fillna("").tolist()
+        answers = vec_data["Answer"].fillna("").tolist()
+
+        if "question_embeddings" not in st.session_state:
+            st.session_state.question_embeddings = model.encode(questions, convert_to_tensor=True)
+
+        input_embedding = model.encode(user_input, convert_to_tensor=True)
+        cosine_scores = util.pytorch_cos_sim(input_embedding, st.session_state.question_embeddings)
+        best_idx = int(cosine_scores.argmax())
+        best_score = float(cosine_scores[0][best_idx])
+
+        if best_score >= THRESHOLD:
+            answer = answers[best_idx]
+        else:
+            answer = "Sorry, I couldn't find a relevant answer."
 
         if st.session_state.language == "ta":
             answer = GoogleTranslator(source='en', target='ta').translate(answer)
@@ -233,17 +248,15 @@ if st.session_state.page == 3:
         save_to_db(st.session_state.username, "User", user_input)
         save_to_db("KCET Bot", "Assistant", answer)
 
-        # Feedback radio for user (per question)
         feedback_option = st.radio(
             "Was this answer helpful?",
             ["👍 Yes", "👎 No"],
             key=f"feedback_{len(st.session_state.original_log)}"
         )
         st.session_state.feedback.append((user_input, answer, feedback_option))
-
         st.rerun()
 
-    # Display chat bubbles
+    # Display chat history
     for speaker, msg, role in st.session_state.original_log:
         align = 'right' if role == "User" else 'left'
         bubble_color = user_color if role == "User" else "#f0f0f0"
@@ -293,7 +306,6 @@ if st.session_state.page == 3:
             if "user_email" in st.session_state and "username" in st.session_state:
                 name = st.session_state.username
                 email = st.session_state.user_email
-                phone = st.session_state.get("user_phone", "Not provided")
                 duration = time.time() - st.session_state.get("session_start", time.time())
                 mins = round(duration / 60, 2)
 
